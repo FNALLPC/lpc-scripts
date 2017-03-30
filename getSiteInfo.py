@@ -6,6 +6,7 @@ from collections import namedtuple
 siteDBDict = {
 #   alias: (local_redirector, 'xrootd_endpoint', 'local_path_to_store')
     'T1_US_FNAL'    : ('cmsxrootd-site.fnal.gov', '' ,                   ''),
+    'T2_CH_CERN'    : ('',                        'eoscms.cern.ch',      ''),
     'T3_US_FNALLPC' : ('',                        'cmseos.fnal.gov',     '/eos/uscms/'),
     'T3_US_TAMU'    : ('',                        'srm.brazos.tamu.edu', '/fdata/hepx/')
 }
