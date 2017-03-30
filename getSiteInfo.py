@@ -4,11 +4,12 @@ from StringIO import StringIO
 from collections import namedtuple
 
 siteDBDict = {
-#   alias: (local_redirector, 'xrootd_endpoint', 'local_path_to_store')
-    'T1_US_FNAL'    : ('cmsxrootd-site.fnal.gov', '' ,                   ''),
-    'T2_CH_CERN'    : ('',                        'eoscms.cern.ch',      ''),
-    'T3_US_FNALLPC' : ('',                        'cmseos.fnal.gov',     '/eos/uscms/'),
-    'T3_US_TAMU'    : ('',                        'srm.brazos.tamu.edu', '/fdata/hepx/')
+#   alias:               (local_redirector,          'xrootd_endpoint',     'gsiftp_endpoint',              'local_path_to_store')
+    'T1_US_FNAL'       : ('cmsxrootd-site.fnal.gov', '' ,                   '',                             ''),
+    'T2_CH_CERN'       : ('',                        'eoscms.cern.ch',      '',                             ''),
+    'T2_US_VANDERBUILT': ('',                        '',                    'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
+    'T3_US_FNALLPC'    : ('',                        'cmseos.fnal.gov',     '',                             '/eos/uscms/'),
+    'T3_US_TAMU'       : ('',                        'srm.brazos.tamu.edu', '',                             '/fdata/hepx/')
 }
 
 def is_number(s):
@@ -39,6 +40,7 @@ class Site(object):
         self.fqdn = ""
         self.local_redirector = ""
         self.xrootd_endpoint = ""
+        self.gsiftp_endpoint = ""
         self.local_path_to_store = ""
         self.is_primary = False
         self.parent_site = ""
@@ -55,6 +57,7 @@ class Site(object):
         print "\tfqdn:",self.fqdn
         print "\tlocal_redirector:",self.local_redirector
         print "\txrootd_endpoint:",self.xrootd_endpoint
+        print "\tgsiftp_endpoint:",self.gsiftp_endpoint
         print "\tlocal_path_to_store:",self.local_path_to_store
         print "\tis_primary:",self.is_primary
         if not fast:
@@ -70,6 +73,11 @@ class Site(object):
 def run_checks(quiet):
     if not quiet: print "Running sanity checks before proceeding ..."
 
+    #check the python version
+    if sys.version_info[0] < 2 or sys.version_info[1] < 7:
+        raise RuntimeError("Must be using Python 2.7 or higher")
+
+    #check for a grid proxy
     with open(os.devnull, 'wb') as devnull:
         process = subprocess.Popen(['voms-proxy-info'], stdout=devnull, stderr=subprocess.STDOUT)
         returncode = process.wait()
@@ -161,7 +169,8 @@ def addInformationNotInSiteDB(site):
     if site.alias in siteDBDict:
         site.local_redirector    = siteDBDict[site.alias][0] if siteDBDict[site.alias][0]!='' else "None"
         site.xrootd_endpoint     = siteDBDict[site.alias][1] if siteDBDict[site.alias][1]!='' else "None"
-        site.local_path_to_store = siteDBDict[site.alias][2] if siteDBDict[site.alias][2]!='' else "None"
+        site.gsiftp_endpoint     = siteDBDict[site.alias][2] if siteDBDict[site.alias][2]!='' else "None"
+        site.local_path_to_store = siteDBDict[site.alias][3] if siteDBDict[site.alias][3]!='' else "None"
 
 def getSiteInfo(site_alias,debug,fast,quiet):
     site = Site(site_alias)
