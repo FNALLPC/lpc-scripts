@@ -66,8 +66,8 @@ class Site(object):
             for iresp in self.responsibilities:
                 print "\t\t",iresp
 
-def run_checks():
-    print "Running sanity checks before proceeding ..."
+def run_checks(quiet):
+    if not quiet: print "Running sanity checks before proceeding ..."
 
     with open(os.devnull, 'wb') as devnull:
         process = subprocess.Popen(['voms-proxy-info'], stdout=devnull, stderr=subprocess.STDOUT)
@@ -162,22 +162,22 @@ def addInformationNotInSiteDB(site):
         site.xrootd_endpoint     = siteDBDict[site.alias][1] if siteDBDict[site.alias][1]!='' else "None"
         site.local_path_to_store = siteDBDict[site.alias][2] if siteDBDict[site.alias][2]!='' else "None"
 
-def getSiteInfo(args):
-    site = Site(args.site_alias)
-    findNameFromAlias(site, args.debug)
-    findSEInfo(site, args.debug)
-    if not args.fast:
-        getSiteAssociations(site, args.debug)
-        getPledges(site, args.debug)
-        getSiteResponsibilities(site, args.debug)
+def getSiteInfo(site_alias,debug,fast,quiet):
+    site = Site(site_alias)
+    findNameFromAlias(site, debug)
+    findSEInfo(site, debug)
+    if not fast:
+        getSiteAssociations(site, debug)
+        getPledges(site, debug)
+        getSiteResponsibilities(site, debug)
     addInformationNotInSiteDB(site)
-    site.print_site_info(args.fast)
+    if not quiet: site.print_site_info(fast)
     return site
 
-def main(args):
+def main(site_alias,debug,fast,quiet):
     global X509_USER_PROXY
-    X509_USER_PROXY = run_checks()
-    return getSiteInfo(args)
+    X509_USER_PROXY = run_checks(quiet)
+    return getSiteInfo(site_alias,debug,fast,quiet)
 
 if __name__ == '__main__':
     #program name available through the %(prog)s command
@@ -191,6 +191,7 @@ if __name__ == '__main__':
     parser.add_argument("site_alias", help="The alias of the server whose information you want to retrieve")
     parser.add_argument("-d","--debug", help="Shows some extra information in order to debug this program", action="store_true")
     parser.add_argument("-f","--fast", help="Retrieves less information, but will run faster", action="store_true")
+    parser.add_argument("-q","--quiet", help="Print the resulting information to stdout", action="store_true")
     parser.add_argument('--version', action='version', version='%(prog)s 1.0b')
     args = parser.parse_args()
 
@@ -199,4 +200,7 @@ if __name__ == '__main__':
          print 'Argument List:', str(sys.argv)
          print "Argument ", args
     
-    main(args)
+    main(args.site_alias, args.debug, args.fast, args.quiet)
+
+
+
