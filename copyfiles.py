@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, sys, getopt, argparse, fnmatch, errno, subprocess, tempfile, getSiteInfo
+import os, sys, getopt, argparse, fnmatch, errno, subprocess, shlex, getSiteInfo
 from subprocess import call
 
 class Error(EnvironmentError):
@@ -25,12 +25,12 @@ def run_checks(RECURSIVE,DEPTH,STARTpath,ENDpath):
         DEPTH = 9999
 
     with open(os.devnull, 'wb') as devnull:
-        process = subprocess.Popen(['voms-proxy-info'], stdout=devnull, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
         returncode = process.wait()
         if returncode!=0 :
             print "\tWARNING::You must have a valid proxy for this script to work.\nRunning \"voms-proxy-init -voms cms\"...\n"
             subprocess.call("voms-proxy-init -voms cms -valid 192:00", shell=True)
-            process = subprocess.Popen(['voms-proxy-info'], stdout=devnull, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
             returncode = process.wait()
             if returncode!=0 :
                 print "\tERROR::Sorry, but I still could not find your proxy.\nWithout a valid proxy, this program will fail spectacularly.\nThe program will now exit." 
@@ -45,68 +45,75 @@ def run_checks(RECURSIVE,DEPTH,STARTpath,ENDpath):
     print
     return (RECURSIVE, DEPTH, STARTpath, ENDpath)
 
-def init_commands(STARTsite, ENDsite, PROTOCOL, RECURSIVE, VERBOSE, QUIET, STREAMS, TIMEOUT, ADDITIONAL):
+def init_commands(STARTsite, ENDsite, PROTOCOL, RECURSIVE=False, VERBOSE=False,
+                  QUIET=False, STREAMS=15, TIMEOUT=1800, DRYRUN=False, ADDITIONAL=""):
     global args
     if args.debug:
         print "copyfiles::init_commands() initializing the start and end commands based on the chosen protocol ("+str(PROTOCOL)+")"
 
+    copy_command = ""
+    start_location = ""
+    end_location = ""
+
     if(PROTOCOL=="gfal"):
-        scommand = "gfal-copy"
-        if VERBOSE: scommand += " -vvv"
-        if RECURSIVE: scommand += " -r"
-        scommand += " -n "+STREAMS+" --timeout "+TIMEOUT
+        copy_command = "gfal-copy"
+        if VERBOSE: copy_command += " -vvv"
+        if RECURSIVE: copy_command += " -r"
+        if DRYRUN: copy_command += " --dry-run"
+        copy_command += " -n "+STREAMS+" --timeout "+TIMEOUT
     elif (PROTOCOL=="xrootd"):
-        scommand = "xrdcp"
+        copy_command = "xrdcp"
         if(VERBOSE):
-            scommand += " -v"
+            copy_command += " -v"
         elif(QUIET):
-            scommand += " -s"
+            copy_command += " -s"
     if ADDITIONAL!="":
-        scommand += " "+ADDITIONAL
+        copy_command += " "+ADDITIONAL
 
     if PROTOCOL=="xrootd" and STARTsite.alias=='local':
-        scommand += " "+STARTsite.path+"/"
+        start_location += " "+STARTsite.path+"/"
     elif PROTOCOL=="gfal" and STARTsite.alias=='local':
-        scommand += " file:////"+STARTsite.path
+        start_location += " file:////"+STARTsite.path
     elif PROTOCOL=="gfal" and STARTsite.alias!='local':
         if STARTsite.gsiftp_endpoint!='None':
-            scommand += " gsiftp://"+STARTsite.gsiftp_endpoint+"/store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
+            start_location += " gsiftp://"+STARTsite.gsiftp_endpoint+"/store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
         elif STARTsite.xrootd_endpoint!='None':
-            scommand += " root://"+STARTsite.xrootd_endpoint+"//store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
+            start_location += " root://"+STARTsite.xrootd_endpoint+"//store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
         else:
             print "ERROR::copyfiles::init_commands() The STARTsite must have either a gsiftp or xrootd endpoint"
             STARTsite.print_site_info(fast=True)
             sys.exit(-1)
     elif PROTOCOL=="xrootd" and STARTsite.alias!='local':
-        scommand += " root://"+STARTsite.xrootd_endpoint+"//store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
+        start_location += " root://"+STARTsite.xrootd_endpoint+"//store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
     else:
         print "ERROR::copyfiles::init_commands() could not figure out how to format the start command."
         sys.exit(-2)
 
     if PROTOCOL=="xrootd" and ENDsite.alias=='local':
-        ecommand = ENDsite.path+"/"
+        end_location = ENDsite.path+"/"
     elif PROTOCOL=="gfal" and ENDsite.alias=='local':
-        ecommand = "file:////"+ENDsite.path
+        end_location = "file:////"+ENDsite.path
     elif PROTOCOL=="gfal" and ENDsite.alias!='local':
         if ENDsite.gsiftp_endpoint!='None':
-            ecommand = "gsiftp://"+ENDsite.gsiftp_endpoint+"/store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
+            end_location = "gsiftp://"+ENDsite.gsiftp_endpoint+"/store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
         elif ENDsite.xrootd_endpoint!='None':
-            ecommand = "root://"+ENDsite.xrootd_endpoint+"//store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
+            end_location = "root://"+ENDsite.xrootd_endpoint+"//store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
         else:
             print "ERROR::copyfiles::init_commands() The ENDsite must have either a gsiftp or xrootd endpoint"
             ENDsite.print_site_info(fast=True)
             sys.exit(-3)
     elif PROTOCOL=="xrootd" and ENDsite.alias!='local':
-        ecommand = "root://"+ENDsite.xrootd_endpoint+"//store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
+        end_location = "root://"+ENDsite.xrootd_endpoint+"//store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
     else:
         print "ERROR::copyfiles::init_commands() could not figure out how to format the end command."
         sys.exit(-4)
 
     if args.debug:
-        print "\tscommand:",scommand
-        print "\tecommand:",ecommand
+        print "\tcopy_command:",copy_command
+        print "\tstart_location:",start_location
+        print "\tend_location:",end_location
 
-    return (scommand,ecommand)
+    return (copy_command,start_location,end_location)
 
 
 def make_directory(ENDsite, path, PROTOCOL):
@@ -131,6 +138,9 @@ def make_directory(ENDsite, path, PROTOCOL):
                 cmd = "gfal-mkdir gsiftp://"+ENDsite.gsiftp_endpoint+"/"+path
             elif ENDsite.xrootd_endpoint!='None':
                 cmd = "gfal-mkdir root://"+ENDsite.xrootd_endpoint+"/"+path
+            print "\tcmd:",cmd
+            os.system(cmd)
+            made_dir = True
         elif os.system(cmd)!=0 and PROTOCOL=="xrootd":
             cmd = "xrdfs root://"+ENDsite.xrootd_endpoint+"/ mkdir "+path
             print "\tcmd:",cmd
@@ -226,7 +236,7 @@ def remoteIsDir(STARTsite,srcname):
 
 def copytree(STARTsite, src, ENDsite, dst, DEPTH, CURRENTdepth, symlinks=False,
              SAMPLE=["*"], DIFF=False, ignore=None, PROTOCOL="local", RECURSIVE=False,
-             STREAMS=15, TIMEOUT=1800, VERBOSE=False, QUIET=False, ADDITIONAL=""):
+             STREAMS=15, TIMEOUT=1800, VERBOSE=False, QUIET=False, DRYRUN=False, ADDITIONAL=""):
     global args
 
     if args.debug:
@@ -236,14 +246,15 @@ def copytree(STARTsite, src, ENDsite, dst, DEPTH, CURRENTdepth, symlinks=False,
         print "\tDEPTH:",str(DEPTH)
         print "\tCURRENTdepth:",str(CURRENTdepth)
         print "\tsymlinks:",str(symlinks)
+        print "\tDRYRUN:",str(DRYRUN)
     if CURRENTdepth >= DEPTH:
         return
     
-    make_directory(ENDsite,dst,PROTOCOL)
+    if not DRYRUN:
+        make_directory(ENDsite,dst,PROTOCOL)
 
     FILES = get_list_of_files(PROTOCOL, STARTsite, SAMPLE, src, args.debug)
-    #print "get_list_of_files src:",src
-    #print "get_list_of_files STARTpath:",STARTpath
+
     if args.debug:
         print "copytree:"
         print "\tList of files:",FILES
@@ -268,16 +279,17 @@ def copytree(STARTsite, src, ENDsite, dst, DEPTH, CURRENTdepth, symlinks=False,
                 linkto = os.readlink(srcname)
                 os.symlink(linkto,dstname)
             elif os.path.isdir(srcname) or (PROTOCOL=="xrootd" and remoteIsDir(STARTsite,srcname)):
-                copytree(STARTsite,srcname,ENDsite,dstname,DEPTH,CURRENTdepth+1,symlinks,SAMPLE,DIFF,ignore,PROTOCOL,RECURSIVE,STREAMS,TIMEOUT,VERBOSE,QUIET,ADDITIONAL)
+                copytree(STARTsite,srcname,ENDsite,dstname,DEPTH,CURRENTdepth+1,symlinks,SAMPLE,DIFF,ignore,PROTOCOL,RECURSIVE,STREAMS,TIMEOUT,VERBOSE,QUIET,DRYRUN,ADDITIONAL)
             else:
                 srel = os.path.relpath(src,src[:src.find(STARTsite.path)+len(STARTsite.path)])+"/"
                 if srel == "./":
                     srel = ""
-                scommand, ecommand = init_commands(STARTsite,ENDsite,PROTOCOL,RECURSIVE,VERBOSE,QUIET,STREAMS,TIMEOUT,ADDITIONAL)
+                copy_command, start_location, end_location = init_commands(STARTsite,ENDsite,PROTOCOL,RECURSIVE,VERBOSE,QUIET,STREAMS,TIMEOUT,DRYRUN,ADDITIONAL)
                 print "Copying file "+FILE+" from "+srel
-                command = scommand+srel+FILE+" "+ecommand+srel+FILE
+                command = copy_command+" "+start_location+srel+FILE+" "+end_location+srel+FILE
                 print command
-                os.system(command)
+                if not DRYRUN:
+                    os.system(command)
                 print
                 
         # catch the Error from the recursive copytree so that we can
@@ -299,7 +311,7 @@ def local2local(STARTsite, ENDsite, RECURSIVE, DELETE, ADDITIONAL):
 
 
 def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE, DIFF, DELETE,
-         RECURSIVE, IGNORE, DEPTH, VERBOSE, QUIET, scommand, ecommand, STREAMS, TIMEOUT, ADDITIONAL):
+         FROM_FILE, RECURSIVE, IGNORE, DEPTH, VERBOSE, QUIET, STREAMS, TIMEOUT, ADDITIONAL, DRYRUN):
     RECURSIVE, DEPTH, STARTpath, ENDpath = run_checks(RECURSIVE,DEPTH,STARTpath,ENDpath)
 
     #get the site information
@@ -317,8 +329,11 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
 
     #gfal-copy has its own working recursive option, so we can take more advantage of that
     if PROTOCOL=='gfal':
-        scommand, ecommand = init_commands(STARTsite,ENDsite,PROTOCOL,RECURSIVE,VERBOSE,QUIET,STREAMS,TIMEOUT,ADDITIONAL)
-        command = scommand+" "+ecommand
+        copy_command, start_location, end_location = init_commands(STARTsite,ENDsite,PROTOCOL,RECURSIVE,VERBOSE,QUIET,STREAMS,TIMEOUT,DRYRUN,ADDITIONAL)
+        if FROM_FILE!="":
+            command = copy_command+" --from-file "+file_list+" "+end_location
+        else:
+            command = copy_command+" "+start_location+" "+end_location
         print command
         os.system(command)
         return
@@ -342,7 +357,10 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
             print "\tTOPsrc:",TOPsrc
             print "\tTOPdst:",TOPdst
             print "\tDEPTH:",str(DEPTH)
-        copytree(STARTsite,TOPsrc,ENDsite,TOPdst,DEPTH,0,False,SAMPLE,DIFF,ignore_patterns(IGNORE),PROTOCOL,STREAMS,TIMEOUT,VERBOSE,QUIET,ADDITIONAL)
+            print "\tDRYRUN:",DRYRUN
+        copytree(STARTsite=STARTsite,src=TOPsrc,ENDsite=ENDsite,dst=TOPdst,DEPTH=DEPTH,CURRENTdepth=0,symlinks=False,
+                 SAMPLE=SAMPLE,DIFF=DIFF,ignore=ignore_patterns(IGNORE),PROTOCOL=PROTOCOL,RECURSIVE=RECURSIVE,
+                 STREAMS=STREAMS,TIMEOUT=TIMEOUT,VERBOSE=VERBOSE,QUIET=QUIET,DRYRUN=DRYRUN,ADDITIONAL=ADDITIONAL)
         return
 
 if __name__ == '__main__':
@@ -378,7 +396,7 @@ And those are the options available. Deal with it.""")
     parser.add_argument("STARTpath", help="The location of the files within the users store area or the absolute path if the STARTserver is \'local\'")
     parser.add_argument("ENDserver", help="The name of the server to which the files should be copied")
     parser.add_argument("ENDpath", help="The location of the files within the users store area or the absolute path if the ENDserver is \'local\'")
-    parser.add_argument("-a","--additional_arguments", help="Any additional arguments for the protocol that are not implemented here",
+    parser.add_argument("-a","--additional_arguments", help="Any additional arguments for the protocol that are not implemented here.",
                         type=str, default="")
     parser.add_argument("-d","--debug", help="Shows some extra information in order to debug this program.",
                         action="store_true")
@@ -386,9 +404,12 @@ And those are the options available. Deal with it.""")
                         type=int, default=1)
     parser.add_argument("--delete", help="Will remove the original files after a successful transfer. This will make the commands act more like a move than a copy.",
                         action="store_true")
-    parser.add_argument("-diff","--diff",
-                        help="Tells the program to do a diff between the two directories and only copy the missing files. Only works for two local directories.",
+    parser.add_argument("-diff","--diff", help="""Tells the program to do a diff between the two directories and only copy the missing files. Only works for two local directories.
+                                                  This is not implemented for the local to local or gfal transfers.""", action="store_true")
+    parser.add_argument("--dry_run", help="Do not perform any action, just print what would be done.",
                         action="store_true")
+    parser.add_argument("--from_file", help="Specify the files to copy. Only implemented for gfal.",
+                        type=str, default="")
     parser.add_argument("-i","--ignore", help="Patterns of files/folders to ignore. (default=())",
                         nargs='+', type=str, default=())
     parser.add_argument("-p", "--protocol", help="Gives the user the option on what protocol to use to transfer the files. (default=xrootd)",
@@ -420,6 +441,6 @@ And those are the options available. Deal with it.""")
          END=args.ENDserver, ENDpath=args.ENDpath, END_USER=args.end_user,
          PROTOCOL=args.protocol, STREAMS=args.streams, TIMEOUT=args.timeout,
          DIFF=args.diff, DELETE=args.delete, RECURSIVE=args.recursive, DEPTH=args.depth,
-         SAMPLE=args.sample, IGNORE=tuple(args.ignore), VERBOSE=args.verbose,
-        QUIET=args.quiet, ADDITIONAL=args.additional_arguments, scommand="", ecommand="")
+         FROM_FILE=args.from_file, SAMPLE=args.sample, IGNORE=tuple(args.ignore), VERBOSE=args.verbose,
+         QUIET=args.quiet, ADDITIONAL=args.additional_arguments, DRYRUN=args.dry_run)
 
