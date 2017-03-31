@@ -36,11 +36,6 @@ def run_checks(RECURSIVE,DEPTH,STARTpath,ENDpath):
                 print "\tERROR::Sorry, but I still could not find your proxy.\nWithout a valid proxy, this program will fail spectacularly.\nThe program will now exit." 
                 sys.exit()
 
-    if STARTpath[-1]!="/":
-        STARTpath+="/"
-    if ENDpath[-1]!="/":
-        ENDpath+="/"
-
     if STARTpath=="./":
         print "\trun_checks::STARTpath chosen as the current working directory ("+str(os.environ['PWD'])+")"
         STARTpath=os.environ['PWD']
@@ -296,17 +291,18 @@ def local2local(STARTsite, ENDsite, RECURSIVE, DELETE, ADDITIONAL):
     if not DELETE and RECURSIVE:
         command += ' -R'
     command = command + ' ' + ADDITIONAL + ' ' + STARTsite.path + ' ' + ENDsite.path
+    print command
     os.system(command)
 
 
-def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE, DIFF,
+def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE, DIFF, DELETE,
          RECURSIVE, IGNORE, DEPTH, VERBOSE, QUIET, scommand, ecommand, STREAMS, TIMEOUT, ADDITIONAL):
     RECURSIVE, DEPTH, STARTpath, ENDpath = run_checks(RECURSIVE,DEPTH,STARTpath,ENDpath)
 
     #get the site information
-    STARTsite = Location(START,START_USER,STARTpath)
+    STARTsite = Location(START,START_USER,STARTpath+"/" if START!='local' else STARTpath)
     if STARTsite.alias!='local': getSiteInfo.getSiteInfo(site=STARTsite,debug=args.debug,fast=True,quiet=True)
-    ENDsite = Location(END,END_USER,ENDpath)
+    ENDsite = Location(END,END_USER,ENDpath+"/" if END!='local' else ENDpath)
     if ENDsite.alias!='local': getSiteInfo.getSiteInfo(site=ENDsite,debug=args.debug,fast=True,quiet=True)
     #STARTsite = getSiteInfo.main(site_alias=START,debug=args.debug,fast=True,quiet=True) if START!='local' else Location('local',START_USER,STARTpath)
     #ENDsite = getSiteInfo.main(site_alias=END,debug=args.debug,fast=True,quiet=True) if END!='local' else Location('local',END_USER,ENDpath)
@@ -314,6 +310,7 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
     #local to local copies can use POSIX commands
     if STARTsite.alias=='local' and ENDsite.alias=='local':
         local2local(STARTsite, ENDsite, RECURSIVE, DELETE, ADDITIONAL)
+        return
 
     #gfal-copy has its own working recursive option, so we can take more advantage of that
     if PROTOCOL=='gfal':
@@ -321,6 +318,7 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
         command = scommand+" "+ecommand
         print command
         os.system(command)
+        return
 
     #Needed for the xrootd protocol because of the lack of a recursive functionality
     if PROTOCOL=='xrootd':
@@ -342,14 +340,12 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
             print "\tTOPdst:",TOPdst
             print "\tDEPTH:",str(DEPTH)
         copytree(STARTsite,TOPsrc,ENDsite,TOPdst,DEPTH,0,False,SAMPLE,DIFF,ignore_patterns(IGNORE),PROTOCOL,STREAMS,TIMEOUT,VERBOSE,QUIET,ADDITIONAL)
+        return
 
 if __name__ == '__main__':
     #program name available through the %(prog)s command
     parser = argparse.ArgumentParser(description="""Transfer files from one location on the OSG to another.\n
-                                                    Need to replace the srm commands with gsiftp commands.\n
-                                                    Can put the gfal-copy commands in their own functions away\n
-                                                    from the xrootd and local commands becuase gfal copy has its\n
-                                                    own recursion algorithm.""",
+                                                    Still need to implement the delete functionality for remote sites.""",
                                      epilog="And those are the options available. Deal with it.")
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("STARTserver", help="The name of the server where the files are initially located")
@@ -397,7 +393,7 @@ if __name__ == '__main__':
     main(START=args.STARTserver, STARTpath=args.STARTpath, START_USER=args.start_user,
          END=args.ENDserver, ENDpath=args.ENDpath, END_USER=args.end_user,
          PROTOCOL=args.protocol, STREAMS=args.streams, TIMEOUT=args.timeout,
-         DIFF=args.diff, RECURSIVE=args.recursive, DEPTH=args.depth,
+         DIFF=args.diff, DELETE=args.delete, RECURSIVE=args.recursive, DEPTH=args.depth,
          SAMPLE=args.sample, IGNORE=tuple(args.ignore), VERBOSE=args.verbose,
         QUIET=args.quiet, ADDITIONAL=args.additional_arguments, scommand="", ecommand="")
 
