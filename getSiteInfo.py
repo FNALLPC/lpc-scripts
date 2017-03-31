@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, sys, getopt, argparse, fnmatch, errno, subprocess, tempfile, shlex, pycurl
+import os, sys, getopt, argparse, fnmatch, errno, subprocess, shlex, pycurl
 from StringIO import StringIO
 from collections import namedtuple
 
@@ -7,7 +7,7 @@ siteDBDict = {
 #   alias:               (local_redirector,          'xrootd_endpoint',     'gsiftp_endpoint',              'local_path_to_store')
     'T1_US_FNAL'       : ('cmsxrootd-site.fnal.gov', '' ,                   '',                             ''),
     'T2_CH_CERN'       : ('',                        'eoscms.cern.ch',      '',                             ''),
-    'T2_US_VANDERBUILT': ('',                        '',                    'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
+    'T2_US_Vanderbilt' : ('',                        '',                    'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
     'T3_US_FNALLPC'    : ('',                        'cmseos.fnal.gov',     '',                             '/eos/uscms/'),
     'T3_US_TAMU'       : ('',                        'srm.brazos.tamu.edu', '',                             '/fdata/hepx/')
 }
@@ -79,12 +79,12 @@ def run_checks(quiet):
 
     #check for a grid proxy
     with open(os.devnull, 'wb') as devnull:
-        process = subprocess.Popen(['voms-proxy-info'], stdout=devnull, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
         returncode = process.wait()
         if returncode!=0 :
             print "\tWARNING::You must have a valid proxy for this script to work.\nRunning \"voms-proxy-init -voms cms\"...\n"
             subprocess.call("voms-proxy-init -voms cms -valid 192:00", shell=True)
-            process = subprocess.Popen(['voms-proxy-info'], stdout=devnull, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
             returncode = process.wait()
             if returncode!=0 :
                 print "\tERROR::Sorry, but I still could not find your proxy.\nWithout a valid proxy, this program will fail spectacularly.\nThe program will now exit." 
