@@ -67,7 +67,7 @@ def init_commands(STARTsite, ENDsite, PROTOCOL, RECURSIVE, VERBOSE, QUIET, STREA
     if PROTOCOL=="xrootd" and STARTsite.alias=='local':
         scommand += " "+STARTsite.path+"/"
     elif PROTOCOL=="gfal" and STARTsite.alias=='local':
-        scommand += " file:////"+STARTsite.path+"/"
+        scommand += " file:////"+STARTsite.path
     elif PROTOCOL=="gfal" and STARTsite.alias!='local':
         if STARTsite.gsiftp_endpoint!='None':
             scommand += " gsiftp://"+STARTsite.gsiftp_endpoint+"/store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
@@ -86,7 +86,7 @@ def init_commands(STARTsite, ENDsite, PROTOCOL, RECURSIVE, VERBOSE, QUIET, STREA
     if PROTOCOL=="xrootd" and ENDsite.alias=='local':
         ecommand = ENDsite.path+"/"
     elif PROTOCOL=="gfal" and ENDsite.alias=='local':
-        ecommand = "file:////"+ENDsite.path+"/"
+        ecommand = "file:////"+ENDsite.path
     elif PROTOCOL=="gfal" and ENDsite.alias!='local':
         if ENDsite.gsiftp_endpoint!='None':
             ecommand = "gsiftp://"+ENDsite.gsiftp_endpoint+"/store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
@@ -149,8 +149,11 @@ def make_directory(ENDsite, path, PROTOCOL):
 
 def get_list_of_files(PROTOCOL, STARTsite, SAMPLE, path, DEBUG=False):
     FILES_UNFILTERED = []
-    if STARTsite.alias=='local': #and os.environ.get('HOSTNAME',"not found").find("fnal.gov") > 0 :
-        FILES_UNFILTERED = os.listdir(path)
+    if STARTsite.alias=='local':
+        if os.path.isfile(path):
+            return [os.path.basename(path)]
+        else:
+            FILES_UNFILTERED = os.listdir(path)
         if DEBUG:
             print "get_list_of_files:"
             print "\tList of files (unfiltered):",FILES_UNFILTERED
@@ -344,9 +347,32 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
 
 if __name__ == '__main__':
     #program name available through the %(prog)s command
-    parser = argparse.ArgumentParser(description="""Transfer files from one location on the OSG to another.\n
-                                                    Still need to implement the delete functionality for remote sites.""",
-                                     epilog="And those are the options available. Deal with it.")
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="""
+Transfer files from one location on the OSG to another.
+Still need to implement the delete functionality for remote sites.""",
+                                     epilog="""
+#############
+# Use Cases #
+#############
+Single file local to remote (gfal)
+    python copyfiles.py local <absolute path>/<filename> T3_US_FNALLPC <path after username> -p gfal
+Single file remote to local (gfal)
+    python copyfiles.py T3_US_FNALLPC <path after username>/<filename> local <absolute path>/<filename> -p gfal
+Single file local to remote (xrootd)
+    python copyfiles.py local <absolute path> T3_US_FNALLPC <path after username> -p xrootd -s <filename>
+Single file remote to local (xrootd)
+    python copyfiles.py T3_US_FNALLPC <path after username> local <absolute path> -p xrootd -s <filename>
+Single file local to local transfers
+    python copyfiles.py local <path>/<filename> local <path>
+Directory local to local transfers
+    python copyfiles.py local <path>/ local <path> -r
+Directory remote to local transfers (gfal - needs to be recursive to make folders)
+    python copyfiles.py T3_US_FNALLPC <path> local <absolute path> -p gfal -r
+Directory remote to local transfers (xrootd - can be made recursive)
+    python copyfiles.py T3_US_FNALLPC <path after username> local <absolute path> -p xrootd --depth <number of levels down>
+
+And those are the options available. Deal with it.""")
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("STARTserver", help="The name of the server where the files are initially located")
     parser.add_argument("STARTpath", help="The location of the files within the users store area or the absolute path if the STARTserver is \'local\'")
@@ -354,33 +380,33 @@ if __name__ == '__main__':
     parser.add_argument("ENDpath", help="The location of the files within the users store area or the absolute path if the ENDserver is \'local\'")
     parser.add_argument("-a","--additional_arguments", help="Any additional arguments for the protocol that are not implemented here",
                         type=str, default="")
-    parser.add_argument("-d","--debug", help="Shows some extra information in order to debug this program",
+    parser.add_argument("-d","--debug", help="Shows some extra information in order to debug this program.",
                         action="store_true")
-    parser.add_argument("--depth", help="The number of levels down to copy. 2 indicates just the files/folders inside STARTpath.",
+    parser.add_argument("--depth", help="The number of levels down to copy. 2 indicates just the files/folders inside STARTpath. (default=1)",
                         type=int, default=1)
     parser.add_argument("--delete", help="Will remove the original files after a successful transfer. This will make the commands act more like a move than a copy.",
                         action="store_true")
     parser.add_argument("-diff","--diff",
                         help="Tells the program to do a diff between the two directories and only copy the missing files. Only works for two local directories.",
                         action="store_true")
-    parser.add_argument("-i","--ignore", help="Patterns of files/folders to ignore",
+    parser.add_argument("-i","--ignore", help="Patterns of files/folders to ignore. (default=())",
                         nargs='+', type=str, default=())
-    parser.add_argument("-p", "--protocol", help="Gives the user the option on what protocol to use to transfer the files",
+    parser.add_argument("-p", "--protocol", help="Gives the user the option on what protocol to use to transfer the files. (default=xrootd)",
                         choices=["gfal","xrootd"], default="xrootd")
     group.add_argument("-q", "--quiet", help="decrease output verbosity to minimal amount",
                        action="store_true")
     parser.add_argument("-r", "--recursive", help="Recursively copies directories and files",
                         action="store_true")
-    parser.add_argument("-s", "--sample", help="Shared portion of the name of the files to be copied", nargs='+',
+    parser.add_argument("-s", "--sample", help="Shared portion of the name of the files to be copied. (default=[\"*\"])", nargs='+',
                         default=["*"])
-    parser.add_argument("-str","--streams", help="The number of transfer streams", default="15")
-    parser.add_argument("-su", "--start_user", help="username of the person transfering the files",
+    parser.add_argument("-str","--streams", help="The number of transfer streams. (default=15)", default="15")
+    parser.add_argument("-su", "--start_user", help="The username of the person transfering the files. (default=os.environ[\'USER\'])",
                         default=os.environ['USER'])
-    parser.add_argument("-eu", "--end_user", help="username of the person transfering the files",
+    parser.add_argument("-eu", "--end_user", help="The username of the person transfering the files. (default=os.environ[\'USER\'])",
                         default=os.environ['USER'])
-    parser.add_argument("-t","--timeout", help="Sets the send/recieve timeout for the gfal command",
+    parser.add_argument("-t","--timeout", help="Sets the send/recieve timeout for the gfal command. (default=1800)",
                         default="1800")
-    group.add_argument("-v", "--verbose", help="Increase output verbosity of gfal-copy (-v) or srm (-debug) commands",
+    group.add_argument("-v", "--verbose", help="Increase output verbosity of gfal-copy or xrdcp commands",
                         action="store_true")
     parser.add_argument('--version', action='version', version='%(prog)s 2.0b')
     args = parser.parse_args()
