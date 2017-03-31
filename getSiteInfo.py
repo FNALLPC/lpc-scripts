@@ -98,8 +98,8 @@ def getCurlInfo(url):
     c.setopt(c.URL, url)
     c.setopt(pycurl.SSL_VERIFYPEER, 1)
     c.setopt(pycurl.SSL_VERIFYHOST, 2)
-    c.setopt(pycurl.SSLKEY, X509_USER_PROXY)
-    c.setopt(pycurl.SSLCERT, X509_USER_PROXY)
+    c.setopt(pycurl.SSLKEY, os.environ['X509_USER_PROXY'])
+    c.setopt(pycurl.SSLCERT, os.environ['X509_USER_PROXY'])
     c.setopt(c.WRITEDATA, buffer)
     c.perform()
     c.close()
@@ -172,8 +172,7 @@ def addInformationNotInSiteDB(site):
         site.gsiftp_endpoint     = siteDBDict[site.alias][2] if siteDBDict[site.alias][2]!='' else "None"
         site.local_path_to_store = siteDBDict[site.alias][3] if siteDBDict[site.alias][3]!='' else "None"
 
-def getSiteInfo(site_alias,debug,fast,quiet):
-    site = Site(site_alias)
+def getSiteInfo(site,debug,fast,quiet):
     findNameFromAlias(site, debug)
     findSEInfo(site, debug)
     if not fast:
@@ -185,9 +184,10 @@ def getSiteInfo(site_alias,debug,fast,quiet):
     return site
 
 def main(site_alias,debug,fast,quiet):
-    global X509_USER_PROXY
-    X509_USER_PROXY = run_checks(quiet)
-    return getSiteInfo(site_alias,debug,fast,quiet)
+    run_checks(quiet)
+    site = Site(site_alias)
+    getSiteInfo(site,debug,fast,quiet)
+    return site
 
 if __name__ == '__main__':
     #program name available through the %(prog)s command
