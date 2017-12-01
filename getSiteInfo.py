@@ -10,8 +10,7 @@ siteDBDict = {
     'T2_US_Vanderbilt' : ('',                        '',                    'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
     'T3_US_FNALLPC'    : ('',                        'cmseos.fnal.gov',     '',                             '/eos/uscms/'),
     'T3_US_TAMU'       : ('',                        'srm.brazos.tamu.edu', '',                             '/fdata/hepx/'),
-    'T3_US_UMD'        : ('',                        'hepcms-0.umd.edu',    '',
-         '/mnt/hadoop/cms/')
+    'T3_US_UMD'        : ('',                        'hepcms-0.umd.edu',    '',                             '/mnt/hadoop/cms/')
 }
 
 def is_number(s):
