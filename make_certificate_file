@@ -1,0 +1,86 @@
+#! /bin/bash
+
+globus_exists(){
+    echo "Check for the $HOME/.globus folder ... "
+    if [ ! -d $HOME/.globus ]; then
+		echo -e "\tCouldn't find the ${HOME}/.globus folder."
+		return 0
+    fi
+    return 1
+}
+
+certs_exist(){
+	cert_dir=$(dirname "${1}")
+	cert_file=$(basename "${1}")
+	echo "Check for $cert_file in $cert_dir ... "
+	if [ ! -e ${1} ]; then
+		echo -e "\tUnable to find the file ${1}."
+		echo -e "\tNOTE: The home character \"~\" is not expanded and must not be used."
+		return 0
+	fi
+
+	key_dir=$(dirname "${2}")
+	key_file=$(basename "${2}")
+	if [ ! -e ${2} ]; then
+		echo -e"\tUnable to find the file ${2}."
+        echo -e "\tNOTE: The home character \"~\" is not expanded and must not be used."
+        return 0
+    fi
+	
+	echo -e "\tFound both the usercert and userkey files."
+	return 1
+}
+
+read -d '' USAGE <<EOF
+\\t\\t\\t=================================================================================
+\\t\\t\\tThis script checks if you have globus certificates or lets you
+\\t\\t\\tinstall them from a p12 file (default: mycert.p12)
+\\t\\t\\tTo overwrite existing certificates you must enter specify that [y/N] (default: N)
+\\t\\t\\tNOTE: New certificates need to be requested first. Follow this Twiki for that:
+\\t\\t\\t
+\\t\\t\\thttps://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookStartingGrid#ObtainingCert
+\\t\\t\\t=================================================================================\\n\\n
+EOF
+
+echo -e "$USAGE"
+
+if globus_exists; then
+	exit -1
+fi
+
+usercert='${HOME}/.globus/usercert.pem'
+userkey='${HOME}/.globus/userkey.pem'
+read -e -p "Enter the full path of the usercert file: " -i "${HOME}/.globus/usercert.pem" input
+usercert="${input:-$name}"
+read -e -p "Enter the full path of the userkey file: " -i "${HOME}/.globus/userkey.pem" input
+userkey="${input:-$name}"
+if certs_exist $usercert $userkey; then
+	exit -2
+fi
+
+mycert="${HOME}/.globus/mycert.p12"
+desc="my browser cert for <year>"
+read -e -p "Enter the output path and name to the p12 certificate file: " -i "${HOME}/.globus/mycert.p12" input
+mycert="${input:-$name}"
+read -e -p "Enter a description of this certificate file: " -i "my browser cert for <year>" input
+desc="${input:-$name}"
+if [ ! -e $(dirname "${mycert}") ]; then
+	echo -e "\tUnable to find the output path for the certificate file."
+	exit -3
+fi
+
+echo -e "Running the command \`openssl pkcs12 -export -in ${usercert} -inkey ${userkey} -out ${mycert} -name \"${desc}\"\`"
+openssl pkcs12 -export -in ${usercert} -inkey ${userkey} -out ${mycert} -name "${desc}"
+res=$?
+if [ "$res" = "0" ]; then
+
+    echo -e "\nAll Done..."
+    echo -e "You can now import the file ${mycert} into your browser.\n"
+else
+    echo -e "\nThere were problems creating the file ${mycert}."
+    echo -e "Please, contact check the directions at "
+    echo -e " https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookStartingGrid#ObtainingCert"
+    echo -e " and try the process manually."
+fi
+
+exit ${res}

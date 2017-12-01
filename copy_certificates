@@ -1,0 +1,60 @@
+#! /bin/bash
+
+proxy_exists(){
+    echo "Check for certificates in $HOME/.globus"
+    echo "..."
+    if [ -d $HOME/.globus ]; then
+        if [ -a $HOME/.globus/usercert.pem ] && [ -a $HOME/.globus/userkey.pem ]; then
+            echo "Certificates exist. Doing nothing."
+            return 0
+        fi
+    fi
+    echo "Couldn't find any certificates."
+    return 1
+}
+
+read -d '' USAGE <<"EOF"
+\\t\\t\\t=================================================================================
+\\t\\t\\tThis script checks if you have globus certificates or lets you
+\\t\\t\\tcopy them from another machine otherwise (default: lxplus.cern.ch)
+\\t\\t\\tNOTE: New certificates need to be requested first. Follow this Twiki for that:
+\\t\\t\\t
+\\t\\t\\thttps://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookStartingGrid#ObtainingCert
+\\t\\t\\t=================================================================================\\n\\n
+EOF
+
+echo -e "$USAGE"
+
+if proxy_exists; then
+    exit
+fi
+
+echo "Copying certificates from another machine"
+echo "Note: This requires certificates to be under the standard \$HOME/.globus location"
+echo -e "...\n\n\n"
+
+hostname='lxplus.cern.ch'
+read -e -p "Enter hostname of machine to login: " -i "lxplus.cern.ch" input
+hostname="${input:-$name}"
+
+
+read -e -p "Enter username for $hostname: " username
+
+if [ ! -d $HOME/.globus ]; then
+    mkdir $HOME/.globus
+fi
+scp -p -r "$username@$hostname:./.globus/*" $HOME/.globus
+
+res=$?
+
+if [ "$res" = "0" ]; then
+ 
+    echo -e "All Done..."
+    echo -e "You can execute the following to initialize your proxy: \n"
+    echo -e "voms-proxy-init -voms cms -valid 192:00"
+else
+    echo -e "There were problems copying the certificate from the remote machine."
+    echo -e "Please, contact us: cms-connect-support@cern.ch"
+fi
+
+exit $res
