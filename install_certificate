@@ -77,7 +77,7 @@ if [ "$res" = "0" ]; then
     echo -e "voms-proxy-init -voms cms -valid 192:00"
 else
     echo -e "\nThere were problems installing the certificates."
-    echo -e "Please, contact check the directions at "
+    echo -e "Please, check the directions at "
 	echo -e " https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookStartingGrid#ObtainingCert"
 	echo -e " and try the process manually."
 fi

@@ -54,7 +54,7 @@ if [ "$res" = "0" ]; then
     echo -e "voms-proxy-init -voms cms -valid 192:00"
 else
     echo -e "There were problems copying the certificate from the remote machine."
-    echo -e "Please, contact us: cms-connect-support@cern.ch"
+    echo -e "For help you can contact the people listed at http://lpc.fnal.gov/computing/gethelp.shtml"
 fi
 
 exit $res

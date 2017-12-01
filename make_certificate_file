@@ -78,7 +78,7 @@ if [ "$res" = "0" ]; then
     echo -e "You can now import the file ${mycert} into your browser.\n"
 else
     echo -e "\nThere were problems creating the file ${mycert}."
-    echo -e "Please, contact check the directions at "
+    echo -e "Please, check the directions at "
     echo -e " https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookStartingGrid#ObtainingCert"
     echo -e " and try the process manually."
 fi
