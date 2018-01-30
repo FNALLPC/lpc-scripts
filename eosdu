@@ -1,0 +1,141 @@
+#!/bin/bash
+#
+#  eosdu
+#
+#  Created by Jesus Orduna, Kevin Pedro, and Alexx Perloff
+#
+
+case `uname` in
+	Linux) ECHO="echo -e" ;;
+	*) ECHO="echo" ;;
+esac
+
+# This will sum the size of all content inside the LFN and return the number in B
+# or an empty string for empty directories
+getSizeOf() {
+	DIR=$1
+	SERVER=$2
+	eos $SERVER find -d $DIR | xargs -I ARG -d '\n' -n1 -P4 bash -c 'awk "$0" <(eos $2 ls -l $1)' '{sum+=$5} END {print sum}' ARG $SERVER | awk '{sum+=$0} END {print sum}'
+}
+
+# This does the same, but counts number of files
+getFilesOf() {
+	DIR=$1
+	SERVER=$2
+	eos $SERVER find -d $DIR | xargs -d '\n' -n1 -P4 eos $SERVER ls | wc -l | awk '{sum+=$0} END {print sum}'
+}
+
+printSizeOf() {
+	DIR=$1
+	SERVER=$2
+
+	# Get the size of the LFN
+	if [ -z "$FILES" ]; then
+		theSize=$(getSizeOf $DIR $SERVER)
+	else
+		theSize=$(getFilesOf $DIR $SERVER)
+	fi
+
+	# Empty directories will evaluate true
+	if [ "a$theSize" = "a" ] ; then
+		echo "Empty"
+	else
+		baseUnit=""
+		if [ -z "$BITS" ]; then
+			baseUnit="B"
+		else
+			baseUnit="iB"
+		fi
+
+		# Non-empty directories with content adding zero-size will evaluate true
+		# need to be filtered as log($theSize) will complain
+		if [ "$theSize" -eq "0" ] ; then
+			echo "0 ${baseUnit}"
+		elif [ -z "$HUMAN" ]; then
+			echo ${theSize}
+		else
+			# Compute an index to refer to B, KB, MB, GB, TB, PB, EB, ZB, YB
+			declare -a thePrefix=( [0]="" [1]="K"  [2]="M" [3]="G" [4]="T" [5]="P" [6]="E" [7]="Z" [8]="Y")
+
+			# binary for size, decimal for files
+			if [ -z "$FILES" ]; then
+				if [ -z "$BITS" ]; then
+					theIndex=$(awk "BEGIN {print int(log($theSize)/(3*log(10)))}")
+					echo "$theSize $theIndex ${thePrefix[$theIndex]}${baseUnit}" | awk '{print $1/(10^(3*$2)), $3}'
+				else
+					theIndex=$(awk "BEGIN {print int(log($theSize)/(10*log(2)))}")
+					echo "$theSize $theIndex ${thePrefix[$theIndex]}${baseUnit}" | awk '{print $1/(2^(10*$2)), $3}'
+				fi
+			else
+				theIndex=$(awk "BEGIN {print int(log($theSize)/(3*log(10)))}")
+				echo "$theSize $theIndex ${thePrefix[$theIndex]} files" | awk '{print $1/(10^(3*$2)), $3, $4}'
+			fi
+		 fi
+	fi
+}
+
+usage()
+{
+cat <<EOF
+usage: eosdu [options] <LFN>
+
+This script can either return the size of a given EOS directory or the number of files in said directory.
+There is the option to recurse through the directory and return the sums of the sub-directories.
+
+OPTIONS:
+	-b      Report the size in bibytes instead of bytes
+	-f      Count number of files instead of disk usage
+	-h      Print human readable sizes
+	-r      Run eosdu for each file/directory in <LFN> ('recursive'/'wildcard' option, like 'du *')
+	-s      xrootd server name (default = root://cmseos.fnal.gov)
+	-u      Show this message
+EOF
+}
+
+BITS=""
+HUMAN=""
+FILES=""
+RECURSE=""
+SERVER=root://cmseos.fnal.gov
+
+#check arguments
+while getopts "bfhrs:u" option; do
+	case "${option}" in
+		b)		BITS=yes
+				;;
+		f)		FILES=yes
+				;;
+		h)		HUMAN=yes
+				;;
+		r)		RECURSE=yes
+				;;
+		s)		SERVER=$OPTARG
+				;;
+		u)		usage
+				exit 1
+				;;
+		\?)		echo "Invalid option: -$OPTARG" >&2
+				usage
+				exit 2
+				;;
+		:)		echo "Option -$OPTARG requires an argument." >&2
+				exit 3
+				;;
+	esac
+done
+
+shift $(($OPTIND - 1))
+DIR=$1
+
+#"recursive" option
+if [[ -n "$RECURSE" ]]; then
+	for i in $(eos $SERVER find -d --maxdepth 1 $DIR); do
+		if [[ "$i" == *"$DIR" || "$i" == *"$DIR"/ ]]; then
+			continue
+		fi
+		theSize=$(printSizeOf $i $SERVER)
+		$ECHO "`basename $i` $theSize"
+	done
+else
+	printSizeOf $DIR $SERVER
+fi
