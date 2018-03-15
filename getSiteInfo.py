@@ -5,6 +5,7 @@ from collections import namedtuple
 
 siteDBDict = {
 #   alias:               (local_redirector,          'xrootd_endpoint',     'gsiftp_endpoint',              'local_path_to_store')
+    'CERNBox'          : ('',                        'eosuser-internal.cern.ch','',                         '/eos/user/<u>/<username>/'),
     'T1_US_FNAL'       : ('cmsxrootd-site.fnal.gov', '' ,                   '',                             ''),
     'T2_CH_CERN'       : ('',                        'eoscms.cern.ch',      '',                             ''),
     'T2_US_Vanderbilt' : ('',                        '',                    'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
@@ -97,7 +98,7 @@ def getCurlInfo(url):
     buffer = StringIO()
     c = pycurl.Curl()
     c.setopt(c.URL, url)
-    c.setopt(pycurl.SSL_VERIFYPEER, 1)
+    c.setopt(pycurl.SSL_VERIFYPEER, 0) #Set to 0 and not 1 because CERN certs are self signed
     c.setopt(pycurl.SSL_VERIFYHOST, 2)
     c.setopt(pycurl.SSLKEY, os.environ['X509_USER_PROXY'])
     c.setopt(pycurl.SSLCERT, os.environ['X509_USER_PROXY'])
