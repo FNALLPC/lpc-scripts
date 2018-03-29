@@ -33,12 +33,8 @@ certs_exist(){
 
 read -d '' USAGE <<EOF
 \\t\\t\\t=================================================================================
-\\t\\t\\tThis script checks if you have globus certificates or lets you
-\\t\\t\\tinstall them from a p12 file (default: mycert.p12)
-\\t\\t\\tTo overwrite existing certificates you must enter specify that [y/N] (default: N)
-\\t\\t\\tNOTE: New certificates need to be requested first. Follow this Twiki for that:
-\\t\\t\\t
-\\t\\t\\thttps://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookStartingGrid#ObtainingCert
+\\t\\t\\tThis script checks if you have globus certificates (defaults: usercert.pem and
+\\t\\t\\tuserkey.pem). If you do it will create a p12 file based on them (default: mycert.p12)
 \\t\\t\\t=================================================================================\\n\\n
 EOF
 
