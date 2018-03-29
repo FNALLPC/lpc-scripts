@@ -1,0 +1,96 @@
+#! /bin/bash
+
+proxy_exists(){
+    echo "Check for certificates/keys in $2 ... "
+    if [ -d $2 ]; then
+        if [ $1 != "N" ] && [ $1 != "Y" ]; then
+			echo -e "\tUnknown option \"$1\". You must specify [Y/N] to delete or keep any existing .pem/.key files."
+			return 0
+		elif [ -a $2/myCert.pem ] && [ -a $2/myCert.key ] && [ $1 == "N" ]; then
+            echo -e "\tCertificates/keys exist. Doing nothing."
+            return 0
+        elif [ -a $2/myCert.pem ] && [ -a $2/myCert.key ] && [ $1 == "Y" ]; then
+			echo -e "\tCertificates/keys exist, but removing them in order to replace them."
+			rm -f $2/myCert.pem
+			rm -f $2/myCert.key
+			return 1
+		fi
+    fi
+    echo -e "\tCouldn't find any certificates/keys."
+    return 1
+}
+
+read -d '' USAGE <<"EOF"
+\\t\\t\\t=================================================================================
+\\t\\t\\tThis script checks if you have a p12 file. If you do, it will convert it into the
+\\t\\t\\tformat needed to use cern-gt-sso-cookie
+\\t\\t\\tTo overwrite existing certificate files you must specify that [y/N] (default: N)
+\\t\\t\\tNOTE: These commands have been adapted from the \"User certificates\" section of
+\\t\\t\\t
+\\t\\t\\thttp://linux.web.cern.ch/linux/docs/cernssocookie.shtml
+\\t\\t\\t=================================================================================\\n\\n
+EOF
+
+echo -e "$USAGE"
+
+read -e -p "Where would you like to put the output files (default: ${HOME}/private/): " -i "${HOME}/private/" output_dir 
+read -e -p "If certificates already exist would you like to overwrite them? [Y/N]: " -i "N" overwrite
+
+if proxy_exists ${overwrite:-$name} ${output_dir:-$name}; then
+    exit
+fi
+
+cert_file='${HOME}/.globus/mycert.p12'
+read -e -p "Enter the full path of the p12 certificate file (default: ${HOME}/.globus/mycert.p12): " -i "${HOME}/.globus/mycert.p12" input
+cert_file="${input:-$name}"
+
+if [ ! -e ${cert_file} ]; then
+	echo -e "\tUnable to find the certificate file ${cert_file}."
+	echo -e "\tNOTE: The home character \"~\" is not expanded and must not be used."
+	exit -1
+fi
+
+echo "Installing certificates from ${cert_file} ... "
+
+if [ ! -d $output_dir ]; then
+	echo -e "\tMaking the output directory and changing the permissions to"
+    mkdir $output_dir
+	chmod 700 $output_dir
+fi
+
+curdir=$PWD
+cd $output_dir
+
+echo -e "Running the command \`openssl pkcs12 -clcerts -nokeys -in ${cert_file} -out ${output_dir}/myCert.pem\`"
+openssl pkcs12 -clcerts -nokeys -in ${cert_file} -out ${output_dir}/myCert.pem
+res=$?
+echo -e "Running the command \`openssl pkcs12 -nocerts -in ${cert_file} -out ${output_dir}/myCert.tmp.key\`"
+openssl pkcs12 -nocerts -in ${cert_file} -out ${output_dir}/myCert.tmp.key
+res=$((res + $?))
+echo -e "Running the command \`openssl rsa -in ${output_dir}/myCert.tmp.key -out ${output_dir}/myCert.key\`"
+openssl rsa -in ${output_dir}/myCert.tmp.key -out ${output_dir}/myCert.key
+res=$((res + $?))
+echo -e "Removing the intermediate files"
+rm ${output_dir}/myCert.tmp.key
+res=$((res + $?))
+chmod 644 ${output_dir}/myCert.pem
+res=$((res + $?))
+chmod 400 ${output_dir}/myCert.key
+res=$((res + $?))
+
+if [ "$res" = "0" ]; then
+
+    echo -e "\nAll Done..."
+	echo -e "You can execute the following to use cern-get-sso-cookie: \n"
+	echo -e "cern-get-sso-cookie --cert ~/private/myCert.pem --key ~/private/myCert.key -r -u https://somesite.web.cern.ch/protected -o ~/private/ssocookie.txt"
+	echo -e "curl -L --cookie ~/private/ssocookie.txt --cookie-jar ~/private/ssocookie.txt https://somesite.web.cern.ch/protected/documents"
+else
+    echo -e "\nThere were problems installing the certificates."
+    echo -e "Please, check the directions at "
+	echo -e " https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookStartingGrid#ObtainingCert"
+	echo -e " and try the process manually."
+fi
+
+cd $curdir
+
+exit $res
