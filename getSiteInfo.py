@@ -8,7 +8,7 @@ siteDBDict = {
     'CERNBox'          : ('',                        'eosuser-internal.cern.ch','',                         '/eos/user/<u>/<username>/'),
     'T1_US_FNAL'       : ('cmsxrootd-site.fnal.gov', '' ,                   '',                             ''),
     'T2_CH_CERN'       : ('',                        'eoscms.cern.ch',      '',                             ''),
-    'T2_US_Vanderbilt' : ('',                        '',                    'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
+    'T2_US_Vanderbilt' : ('',                        'xrootd.accre.vanderbilt.edu', 'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
     'T3_US_FNALLPC'    : ('',                        'cmseos.fnal.gov',     '',                             '/eos/uscms/'),
     'T3_US_TAMU'       : ('',                        'srm.brazos.tamu.edu', '',                             '/fdata/hepx/'),
     'T3_US_UMD'        : ('',                        'hepcms-0.umd.edu',    '',                             '/mnt/hadoop/cms/')
