@@ -1,7 +1,12 @@
 #!/usr/bin/env python
-import os, sys, getopt, argparse, fnmatch, errno, subprocess, shlex, pycurl
+import os, sys, getopt, argparse, fnmatch, errno, subprocess, shlex, pycurl, json, traceback
 from StringIO import StringIO
 from collections import namedtuple
+
+# /cvmfs/cms.cern.ch/SITECONF/T1_US_FNAL/PhEDEx/storage.xml
+# Can get site local_redirector and srm endpoints
+# doesn't have eos endpoints
+
 
 siteDBDict = {
 #   alias:               (local_redirector,          'xrootd_endpoint',     'gsiftp_endpoint',              'local_path_to_store')
@@ -40,6 +45,8 @@ class Site(object):
         self.types = []
         self.element_type = ""
         self.fqdn = ""
+        self.lfn = ""
+        self.pfn = ""
         self.local_redirector = ""
         self.xrootd_endpoint = ""
         self.gsiftp_endpoint = ""
@@ -57,6 +64,8 @@ class Site(object):
         print "\tTypes:",self.types
         print "\tElement Type:",self.element_type
         print "\tfqdn:",self.fqdn
+        print "\tlfn:",self.lfn
+        print "\tpfn:",self.pfn
         print "\tlocal_redirector:",self.local_redirector
         print "\txrootd_endpoint:",self.xrootd_endpoint
         print "\tgsiftp_endpoint:",self.gsiftp_endpoint
@@ -74,6 +83,11 @@ class Site(object):
 
 def run_checks(quiet):
     if not quiet: print "Running sanity checks before proceeding ..."
+
+    #check the os
+    #for some reason pycurl will only work with sl6 and not sl7
+    if os.uname()[2].find("el6") < 0:
+        raise RuntimeError("Must use sl6 (sl7 has a pycurl bug).")
 
     #check the python version
     if sys.version_info[0] < 2 or sys.version_info[1] < 7:
@@ -98,11 +112,16 @@ def getCurlInfo(url):
     buffer = StringIO()
     c = pycurl.Curl()
     c.setopt(c.URL, url)
+    c.setopt(pycurl.HTTPGET, 1)
     c.setopt(pycurl.SSL_VERIFYPEER, 0) #Set to 0 and not 1 because CERN certs are self signed
     c.setopt(pycurl.SSL_VERIFYHOST, 2)
+    #c.setopt(pycurl.COOKIEFILE,os.getenv('HOME')+"/private/ssocookie.txt")
     c.setopt(pycurl.SSLKEY, os.environ['X509_USER_PROXY'])
     c.setopt(pycurl.SSLCERT, os.environ['X509_USER_PROXY'])
-    c.setopt(c.WRITEDATA, buffer)
+    c.setopt(pycurl.CAINFO, '/etc/grid-security/certificates')
+    #c.setopt(pycurl.CAPATH, '/etc/pki/tls/certs') #If using cern-get-sso-cookie
+    c.setopt(pycurl.FOLLOWLOCATION, 1)
+    c.setopt(c.WRITEFUNCTION, buffer.write)
     c.perform()
     c.close()
     return buffer.getvalue()
@@ -167,7 +186,22 @@ def getSiteResponsibilities(site, debug = False):
         if current_site == site.name:
             site.responsibilities.append(Responsibility(ibody.split('"')[1],ibody.split('"')[5]))
 
-def addInformationNotInSiteDB(site):
+def getLFNAndPFNFromPhEDEx(site, debug = False):
+    jstr = getCurlInfo('https://cmsweb.cern.ch/phedex/datasvc/json/prod/lfn2pfn?node='+site.alias+'&lfn=/store/user&protocol=srmv2')
+    if debug: print "getSiteInfo::getPDNFromPhEDEx()"
+    try:
+        result = json.loads(jstr)
+        site.lfn = result['phedex']['mapping'][0]['lfn']
+        site.pfn = result['phedex']['mapping'][0]['pfn']
+    except:
+        print "Unable to get the LFN and PFN for", site.alias, "from PhEDEx"
+        print jstr
+        if debug: raise RuntimeError(traceback.format_exc()) 
+        site.lfn = "None"
+        site.pfn = "None"
+
+
+def addInformationNotInSiteDB(site, debug = False):
     if site.alias in siteDBDict:
         site.local_redirector    = siteDBDict[site.alias][0] if siteDBDict[site.alias][0]!='' else "None"
         site.xrootd_endpoint     = siteDBDict[site.alias][1] if siteDBDict[site.alias][1]!='' else "None"
@@ -177,11 +211,12 @@ def addInformationNotInSiteDB(site):
 def getSiteInfo(site,debug,fast,quiet):
     findNameFromAlias(site, debug)
     findSEInfo(site, debug)
+    getLFNAndPFNFromPhEDEx(site, debug)
     if not fast:
         getSiteAssociations(site, debug)
         getPledges(site, debug)
         getSiteResponsibilities(site, debug)
-    addInformationNotInSiteDB(site)
+    addInformationNotInSiteDB(site, debug)
     if not quiet: site.print_site_info(fast)
     return site
 
