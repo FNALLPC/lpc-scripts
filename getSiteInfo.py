@@ -3,11 +3,6 @@ import os, sys, getopt, argparse, fnmatch, errno, subprocess, shlex, pycurl, jso
 from StringIO import StringIO
 from collections import namedtuple
 
-# /cvmfs/cms.cern.ch/SITECONF/T1_US_FNAL/PhEDEx/storage.xml
-# Can get site local_redirector and srm endpoints
-# doesn't have eos endpoints
-
-
 siteDBDict = {
 #   alias:               (local_redirector,          'xrootd_endpoint',     'gsiftp_endpoint',              'local_path_to_store')
     'CERNBox'          : ('',                        'eosuser-internal.cern.ch','',                         '/eos/user/<u>/<username>/'),
