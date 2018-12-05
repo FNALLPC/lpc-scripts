@@ -204,6 +204,7 @@ def addInformationNotInSiteDB(site, debug = False):
         site.local_path_to_store = siteDBDict[site.alias][3] if siteDBDict[site.alias][3]!='' else "None"
 
 def getSiteInfo(site,debug,fast,quiet):
+    run_checks(quiet)
     findNameFromAlias(site, debug)
     findSEInfo(site, debug)
     getLFNAndPFNFromPhEDEx(site, debug)
@@ -216,7 +217,6 @@ def getSiteInfo(site,debug,fast,quiet):
     return site
 
 def main(site_alias,debug,fast,quiet):
-    run_checks(quiet)
     site = Site(site_alias)
     getSiteInfo(site,debug,fast,quiet)
     return site
