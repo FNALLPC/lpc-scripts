@@ -10,30 +10,46 @@ case `uname` in
 	*) ECHO="echo" ;;
 esac
 
+# awk command to modify the EOS (citrine) find command and return the output to something like the previous versions
+FIXFIND='{lfn=$1; while(substr(lfn,1,6)!="/store"&&length(lfn)>=6) { lfn = substr(lfn,2) }; print lfn}'
+
 # This will sum the size of all content inside the LFN and return the number in B
 # or an empty string for empty directories
 getSizeOf() {
 	DIR=$1
 	SERVER=$2
-	eos $SERVER find -d $DIR | xargs -I ARG -d '\n' -n1 -P4 bash -c 'awk "$0" <(eos $2 ls -l $1)' '{sum+=$5} END {print sum}' ARG $SERVER | awk '{sum+=$0} END {print sum}'
+	MATCH=$3
+	# default case
+	if [ -z "$MATCH" ]; then
+		eos $SERVER find -d $DIR | awk "$FIXFIND" | xargs -I ARG -d '\n' -n1 -P4 bash -c 'awk "$0" <(eos $2 ls -l $1)' '{sum+=$5} END {print sum}' ARG $SERVER | awk '{sum+=$0} END {print sum}'
+	# matching case
+	else
+		eos $SERVER ls -l $DIR | grep "$MATCH" | awk '{sum+=$5} END {print sum}'
+	fi
 }
 
 # This does the same, but counts number of files
 getFilesOf() {
 	DIR=$1
 	SERVER=$2
-	eos $SERVER find -d $DIR | xargs -d '\n' -n1 -P4 eos $SERVER ls | wc -l | awk '{sum+=$0} END {print sum}'
+	MATCH=$3
+	if [ -z "$MATCH" ]; then
+		eos $SERVER find -d $DIR | awk "$FIXFIND" | xargs -d '\n' -n1 -P4 eos $SERVER ls | wc -l | awk '{sum+=$0} END {print sum}'
+	else
+		eos $SERVER ls $DIR | grep "$MATCH" | wc -l
+	fi
 }
 
 printSizeOf() {
 	DIR=$1
 	SERVER=$2
+	MATCH=$3
 
 	# Get the size of the LFN
 	if [ -z "$FILES" ]; then
-		theSize=$(getSizeOf $DIR $SERVER)
+		theSize=$(getSizeOf $DIR $SERVER $MATCH)
 	else
-		theSize=$(getFilesOf $DIR $SERVER)
+		theSize=$(getFilesOf $DIR $SERVER $MATCH)
 	fi
 
 	# Empty directories will evaluate true
@@ -85,6 +101,7 @@ There is the option to recurse through the directory and return the sums of the 
 OPTIONS:
 	-b      Report the size in bibytes instead of bytes
 	-f      Count number of files instead of disk usage
+	-g      Search for files matching specified string within directory
 	-h      Print human readable sizes
 	-r      Run eosdu for each file/directory in <LFN> ('recursive'/'wildcard' option, like 'du *')
 	-s      xrootd server name (default = root://cmseos.fnal.gov)
@@ -95,15 +112,18 @@ EOF
 BITS=""
 HUMAN=""
 FILES=""
+MATCH=""
 RECURSE=""
 SERVER=root://cmseos.fnal.gov
 
 #check arguments
-while getopts "bfhrs:u" option; do
+while getopts "bfg:hrs:u" option; do
 	case "${option}" in
 		b)		BITS=yes
 				;;
 		f)		FILES=yes
+				;;
+		g) 		MATCH=$OPTARG
 				;;
 		h)		HUMAN=yes
 				;;
@@ -129,13 +149,13 @@ DIR=$1
 
 #"recursive" option
 if [[ -n "$RECURSE" ]]; then
-	for i in $(eos $SERVER find -d --maxdepth 1 $DIR); do
+	for i in $(eos $SERVER find -d --maxdepth 1 $DIR | awk "$FIXFIND"); do
 		if [[ "$i" == *"$DIR" || "$i" == *"$DIR"/ ]]; then
 			continue
 		fi
-		theSize=$(printSizeOf $i $SERVER)
+		theSize=$(printSizeOf $i $SERVER $MATCH)
 		$ECHO "`basename $i` $theSize"
 	done
 else
-	printSizeOf $DIR $SERVER
+	printSizeOf $DIR $SERVER $MATCH
 fi
