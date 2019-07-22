@@ -4,14 +4,14 @@ from StringIO import StringIO
 from collections import namedtuple
 
 siteDBDict = {
-#   alias:               (local_redirector,          'xrootd_endpoint',     'gsiftp_endpoint',              'local_path_to_store')
-    'CERNBox'          : ('',                        'eosuser-internal.cern.ch','',                         '/eos/user/<u>/<username>/'),
-    'T1_US_FNAL'       : ('cmsxrootd-site.fnal.gov', '' ,                   '',                             ''),
-    'T2_CH_CERN'       : ('',                        'eoscms.cern.ch',      '',                             ''),
-    'T2_US_Vanderbilt' : ('',                        'xrootd.accre.vanderbilt.edu', 'gridftp.accre.vanderbilt.edu', '/lio/lfs/cms/'),
-    'T3_US_FNALLPC'    : ('',                        'cmseos.fnal.gov',     '',                             '/eos/uscms/'),
-    'T3_US_TAMU'       : ('',                        'srm.brazos.tamu.edu', '',                             '/fdata/hepx/'),
-    'T3_US_UMD'        : ('',                        'hepcms-0.umd.edu',    '',                             '/mnt/hadoop/cms/')
+#   alias:               (local_redirector,          'xrootd_endpoint',                     'local_path_to_store')
+    'CERNBox'          : ('',                        'eosuser-internal.cern.ch',            '/eos/user/<u>/<username>/'),
+    'T1_US_FNAL'       : ('cmsxrootd-site.fnal.gov', '' ,                                   ''),
+    'T2_CH_CERN'       : ('',                        '',                                    ''),
+    'T2_US_Vanderbilt' : ('',                        'root://xrootd.accre.vanderbilt.edu/', '/lio/lfs/cms/'),
+    'T3_US_FNALLPC'    : ('',                        '',                                    '/eos/uscms/'),
+    'T3_US_TAMU'       : ('',                        '',                                    '/fdata/hepx/'),
+    'T3_US_UMD'        : ('',                        '',                                    '/mnt/hadoop/cms/')
 }
 
 def is_number(s):
@@ -30,7 +30,6 @@ class Responsibility(namedtuple('Responsibility', 'username role')):
      __slots__ = ()
      def __str__(self):
          return '%s %s' % (self.username, self.role)
-
 
 class Site(object):
     """Class for storing OSG site information from SiteDB"""
@@ -52,41 +51,45 @@ class Site(object):
         self.pledges = []
         self.responsibilities = []
 
-    def print_site_info(self,fast):
-        print "Site Information:"
-        print "\tName:",self.name
-        print "\tAlias:",self.alias
-        print "\tTypes:",self.types
-        print "\tElement Type:",self.element_type
-        print "\tfqdn:",self.fqdn
-        print "\tlfn:",self.lfn
-        print "\tpfn:",self.pfn
-        print "\tlocal_redirector:",self.local_redirector
-        print "\txrootd_endpoint:",self.xrootd_endpoint
-        print "\tgsiftp_endpoint:",self.gsiftp_endpoint
-        print "\tlocal_path_to_store:",self.local_path_to_store
-        print "\tis_primary:",self.is_primary
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, self.alias)
+
+    def __str__(self,fast):
+        ret =  "Site Information:\n"
+        ret += "\tName: "+self.name+"\n"
+        ret += "\tAlias: "+self.alias+"\n"
+        ret += "\tTypes: "+str(self.types)+"\n"
+        ret += "\tElement Type: "+str(self.element_type)+"\n"
+        ret += "\tfqdn: "+str(self.fqdn)+"\n"
+        ret += "\tlfn: "+str(self.lfn)+"\n"
+        ret += "\tpfn: "+str(self.pfn)+"\n"
+        ret += "\tlocal_redirector: "+str(self.local_redirector)+"\n"
+        ret += "\txrootd_endpoint: "+str(self.xrootd_endpoint)+"\n"
+        ret += "\tgsiftp_endpoint: "+str(self.gsiftp_endpoint)+"\n"
+        ret += "\tlocal_path_to_store: "+str(self.local_path_to_store)+"\n"
+        ret += "\tis_primary: "+str(self.is_primary)+"\n"
         if not fast:
-            print "\tparent_site:",self.parent_site
-            print "\tchild_sites:",self.child_sites
-            print "\tPledges:",Pledge._fields
+            ret += "\tparent_site: "+self.parent_site+"\n"
+            ret += "\tchild_sites: "+str(self.child_sites)+"\n"
+            ret += "\tPledges: "+str(Pledge._fields)+"\n"
             for ipledge in self.pledges:
-                print "\t\t",ipledge
-            print "\tResponsibilities:",Responsibility._fields
+                ret += "\t\t"+str(ipledge)+"\n"
+            ret += "\tResponsibilities: "+str(Responsibility._fields)+"\n"
             for iresp in self.responsibilities:
-                print "\t\t",iresp
+                ret += "\t\t"+str(iresp)+"\n"
+        return ret
+
+    def create_xrootd_endpoint(self):
+        self.xrootd_endpoint = "root://%s/" % (self.fqdn)
 
 def run_checks(quiet):
     if not quiet: print "Running sanity checks before proceeding ..."
 
-    #check the os
-    #for some reason pycurl will only work with sl6 and not sl7
-    if os.uname()[2].find("el6") < 0:
-        raise RuntimeError("Must use sl6 (sl7 has a pycurl bug).")
-
     #check the python version
-    if sys.version_info[0] < 2 or sys.version_info[1] < 7:
-        raise RuntimeError("Must be using Python 2.7 or higher")
+    min_python_version = (2,7,11)
+    if sys.version_info < min_python_version:
+        raise RuntimeError("Must be using Python %s.%s.%s or higher. " \
+                           "Try running getPythonVersions.py to get a list of standalone python versions." % min_python_version)
 
     #check for a grid proxy
     with open(os.devnull, 'wb') as devnull:
@@ -110,11 +113,9 @@ def getCurlInfo(url):
     c.setopt(pycurl.HTTPGET, 1)
     c.setopt(pycurl.SSL_VERIFYPEER, 0) #Set to 0 and not 1 because CERN certs are self signed
     c.setopt(pycurl.SSL_VERIFYHOST, 2)
-    #c.setopt(pycurl.COOKIEFILE,os.getenv('HOME')+"/private/ssocookie.txt")
     c.setopt(pycurl.SSLKEY, os.environ['X509_USER_PROXY'])
     c.setopt(pycurl.SSLCERT, os.environ['X509_USER_PROXY'])
     c.setopt(pycurl.CAINFO, '/etc/grid-security/certificates')
-    #c.setopt(pycurl.CAPATH, '/etc/pki/tls/certs') #If using cern-get-sso-cookie
     c.setopt(pycurl.FOLLOWLOCATION, 1)
     c.setopt(c.WRITEFUNCTION, buffer.write)
     c.perform()
@@ -199,9 +200,16 @@ def getLFNAndPFNFromPhEDEx(site, debug = False):
 def addInformationNotInSiteDB(site, debug = False):
     if site.alias in siteDBDict:
         site.local_redirector    = siteDBDict[site.alias][0] if siteDBDict[site.alias][0]!='' else "None"
-        site.xrootd_endpoint     = siteDBDict[site.alias][1] if siteDBDict[site.alias][1]!='' else "None"
-        site.gsiftp_endpoint     = siteDBDict[site.alias][2] if siteDBDict[site.alias][2]!='' else "None"
-        site.local_path_to_store = siteDBDict[site.alias][3] if siteDBDict[site.alias][3]!='' else "None"
+        site.local_path_to_store = siteDBDict[site.alias][2] if siteDBDict[site.alias][2]!='' else "None"
+        site.gsiftp_endpoint     = site.pfn
+        if siteDBDict[site.alias][1]!='':
+            site.xrootd_endpoint = siteDBDict[site.alias][1]
+        else:
+            site.create_xrootd_endpoint()
+    else:
+        if site.xrootd_endpoint == '':
+            site.create_xrootd_endpoint()
+
 
 def getSiteInfo(site,debug,fast,quiet):
     run_checks(quiet)
@@ -213,7 +221,7 @@ def getSiteInfo(site,debug,fast,quiet):
         getPledges(site, debug)
         getSiteResponsibilities(site, debug)
     addInformationNotInSiteDB(site, debug)
-    if not quiet: site.print_site_info(fast)
+    if not quiet: print site.__str__(fast)
     return site
 
 def main(site_alias,debug,fast,quiet):
@@ -234,7 +242,7 @@ if __name__ == '__main__':
     parser.add_argument("-d","--debug", help="Shows some extra information in order to debug this program", action="store_true")
     parser.add_argument("-f","--fast", help="Retrieves less information, but will run faster", action="store_true")
     parser.add_argument("-q","--quiet", help="Print the resulting information to stdout", action="store_true")
-    parser.add_argument('--version', action='version', version='%(prog)s 1.0b')
+    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
     args = parser.parse_args()
 
     if(args.debug):
