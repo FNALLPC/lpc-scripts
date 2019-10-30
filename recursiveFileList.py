@@ -45,7 +45,7 @@ if __name__ == "__main__":
   from sys import argv
   from pprint import pprint
   print "--------\nmap:"
-  pprint(mapDir(argv[1], argv[1]))
+  pprint(mapDir("", argv[1]))
   print "--------\n"
   print "--------\nfiles:"
   pprint(getFileList(argv[1]))
