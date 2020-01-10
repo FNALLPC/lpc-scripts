@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import os, subprocess, sys
+import os, subprocess, sys, shlex
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, RawDescriptionHelpFormatter, RawTextHelpFormatter
 
 # from ConfigArgParse
@@ -33,7 +33,7 @@ Notes:
     parser.add_argument("-d","--dir", dest="dir", type=str, default="$CMSSW_BASE/local", help="path for pip install prefix")
     parser.add_argument("-t","--tool", dest="tool", type=str, default="py2-local", help="name for scram tool")
     parser.add_argument("-v","--version", dest="version", type=int, default=2, choices=[2,3], help="python version")
-    parser.add_argument("-p","--pip-args", dest="pip_args", type=str, help="additional args for pip")
+    parser.add_argument("-p","--pip-args", dest="pip_args", type=shlex.split, help="additional args for pip")
     parser.add_argument("packages", nargs='?', help="packages to install")
     args = parser.parse_args()
 
@@ -62,7 +62,7 @@ Notes:
     if args.packages is not None and len(args.packages)>0:
         if not isinstance(args.packages,list): args.packages = [args.packages]
         call_args = [exe,"-m","pip","install","--prefix",full_dir]
-        if args.pip_args is not None and len(args.pip_args)>0: call_args.append(args.pip_args)
+        if args.pip_args is not None and len(args.pip_args)>0: call_args.extend(args.pip_args)
         call_args.extend(args.packages)
         subprocess.check_call(call_args)
 
@@ -76,6 +76,7 @@ Notes:
         if os.path.isdir(os.path.expandvars(pathdir)):
             lines.append('  <runtime name="PATH" type="path" value="{}"/>'.format(pathdir))
         libdir = args.dir+"/lib/python{:d}.{:d}/site-packages".format(sys.version_info.major,sys.version_info.minor)
+        print(os.path.expandvars(libdir))
         if os.path.isdir(os.path.expandvars(libdir)):
             lines.append('  <runtime name="{}" type="path" value="{}"/>'.format(path,libdir))
         lines.append('</tool>')
