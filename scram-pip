@@ -1,0 +1,121 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import os, subprocess, shlex, stat
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, RawDescriptionHelpFormatter, RawTextHelpFormatter
+
+# from ConfigArgParse
+class ArgumentDefaultsRawHelpFormatter(
+    ArgumentDefaultsHelpFormatter,
+    RawTextHelpFormatter,
+    RawDescriptionHelpFormatter):
+    pass
+
+def check_dir(dir_name):
+    if not os.path.isdir(dir_name):
+        os.makedirs(dir_name)
+    if not os.path.isdir(dir_name):
+        # failed for some reason
+        raise RuntimeError("Failed to make dir: "+dir_name)
+
+def make_exec(file_name):
+    # make executable
+    st = os.stat(file_name)
+    os.chmod(file_name, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+# from https://github.com/cms-sw/cmssw-config/blob/2c6a8489706e02c8d4fbc4769b9146faabd3b383/SCRAM/hooks/runtime-hook
+_runtime_hook_contents = """
+#!/bin/bash
+
+SCRIPT_DIR=$(dirname $0)
+if [ -e ${SCRIPT_DIR}/runtime ] ; then
+  for tool in $(find ${SCRIPT_DIR}/runtime -type f | sort) ; do
+    [ -x $tool ] && $tool
+  done
+fi
+"""
+
+if __name__=="__main__":
+    # this tool only works in/for CMSSW
+    CMSSW_BASE = os.getenv("CMSSW_BASE")
+    if CMSSW_BASE is None:
+        raise EnvironmentError("CMSSW_BASE not set")
+
+    parser = ArgumentParser(
+        formatter_class=ArgumentDefaultsRawHelpFormatter,
+        description="Install python packages locally within a CMSSW area and update paths accordingly.",
+        epilog="""
+Notes:
+* always call cmsenv after running this tool
+* dir must start with '$CMSSW_BASE' to be relocatable (with `scram b ProjectRename`)
+* default hook name will be updated to py3-local if python version 3 is selected
+* pass pip args like -p="-I" (with equals sign and quotes)
+* pip arg -I (--ignore-installed) is useful to prevent pip from trying to uninstall dependencies on cvmfs (read-only)
+* if called without any packages, will just update scram hook (useful if anything was added to dir outside of this tool)
+"""
+    )
+    parser.add_argument("-d","--dir", dest="dir", type=str, default="$CMSSW_BASE/local", help="path for pip install prefix")
+    parser.add_argument("-k","--hook", dest="hook", type=str, default="py2-local", help="name for scram hook")
+    parser.add_argument("-v","--version", dest="version", type=int, default=2, choices=[2,3], help="python version")
+    parser.add_argument("-p","--pip-args", dest="pip_args", type=shlex.split, help="additional args for pip")
+    parser.add_argument("packages", nargs='?', help="packages to install")
+    args = parser.parse_args()
+
+    # check for modern setup
+    if "PYTHON3PATH" in os.environ:
+        if args.version==3:
+            exe = "python3"
+            path = "PYTHON3PATH"
+            if args.hook=="py2-local": args.hook = "py3-local"
+        elif args.version==2:
+            exe = "python2"
+            path = "PYTHON27PATH"
+    else:
+        if args.version==3: parser.error("This CMSSW version is too old to use python3")
+        exe = "python"
+        path = "PYTHONPATH"
+
+    full_dir = os.path.expandvars(args.dir)
+    check_dir(full_dir)
+
+    # call pip (if any packages requested)
+    if args.packages is not None and len(args.packages)>0:
+        if not isinstance(args.packages,list): args.packages = [args.packages]
+        call_args = [exe,"-m","pip","install","--prefix",full_dir]
+        if args.pip_args is not None and len(args.pip_args)>0: call_args.extend(args.pip_args)
+        call_args.extend(args.packages)
+        subprocess.check_call(call_args)
+
+    # get version of selected python exe
+    exe_version = subprocess.check_output([exe,'-c',"from __future__ import print_function; import sys; print(sys.version_info.major,sys.version_info.minor)"])
+    exe_version = exe_version.rstrip().split(' ')
+    # setup scram runtime hook
+    hook_dir = os.path.expandvars('$CMSSW_BASE/config/SCRAM/hooks/runtime')
+    check_dir(hook_dir)
+    hook_file = hook_dir+"-hook"
+    # for backward compatibility
+    if not os.path.isfile(hook_file):
+        with open(hook_file,'w') as hfile:
+            hfile.write(_runtime_hook_contents)
+        # make executable
+        make_exec(hook_file)
+    # make specific hook
+    this_hook = hook_dir+"/"+args.hook
+    with open(this_hook,'w') as tfile:
+        lines = [
+            "#!/bin/bash",
+            "",
+            "CMSSW_BASE=${LOCALTOP}", # because hooks run before CMSSW_BASE is defined
+        ]
+        pathdir = args.dir+"/bin"
+        if os.path.isdir(os.path.expandvars(pathdir)):
+            lines.append('echo "RUNTIME:path:prepend:PATH={}"'.format(pathdir))
+        libdir = args.dir+"/lib/python{}.{}/site-packages".format(exe_version[0],exe_version[1])
+        if os.path.isdir(os.path.expandvars(libdir)):
+            lines.append('echo "RUNTIME:path:prepend:{}={}"'.format(path,libdir))
+        tfile.write('\n'.join(lines))
+    # make executable
+    make_exec(this_hook)
+
+    # remember to run cmsenv afterward
+    print("scram-pip succeeded! please call 'cmsenv' now")
