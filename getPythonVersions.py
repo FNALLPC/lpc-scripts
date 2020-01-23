@@ -60,6 +60,7 @@ def getShortPath(path, nfront=2, nback=2):
 def getVersionPopen(path,note="",shorten=False,width=120,lcg_version="",architecture="",setup=""):
 	p = subprocess.Popen(path+" --version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	output = p.communicate()[0]
+	output = output.replace('+','')
 	version_info = map(int,output.split()[1].split('.'))
 	versions = []
 	short_path = getShortPath(path)
