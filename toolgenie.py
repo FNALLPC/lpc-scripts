@@ -87,8 +87,8 @@ def toolgenie():
 
     # Fileter on the SCRAM architecture
     architecture_options = get_architectures(relmap)
-    print("Select an architecture. For a single architecture selection, you can enter the item number or the name of the architecture. \
-          To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'. The architecture choices are listed below.")
+    print("Select an architecture. For a single architecture selection, you can enter the item number or the name of the architecture. " \
+          "To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'. The architecture choices are listed below.")
     print_list(architecture_options)
     user_response = input('--> ')
     if user_response.isdigit() and (int(user_response) > len(architecture_options) or int(user_response) < 0):
@@ -112,8 +112,8 @@ def toolgenie():
     
     # Filter on the CMSSW label
     label_options = get_labels(selected_releases)
-    print("\nSelect a CMSSW release. For a single release, you can enter the item number or the name of the release. \
-          To select multiple relases, you can use a regex using the syntax \'r:<regex>\'. The release choices are listed below.")
+    print("\nSelect a CMSSW release. For a single release, you can enter the item number or the name of the release. " \
+          "To select multiple relases, you can use a regex using the syntax \'r:<regex>\'. The release choices are listed below.")
     print_list(label_options)
     user_response = input('--> ')
     if user_response.isdigit() and (int(user_response) > len(label_options) or int(user_response) < 0):
