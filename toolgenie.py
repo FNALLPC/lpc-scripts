@@ -90,6 +90,8 @@ def toolgenie():
     print("Select an architecture. For a single architecture selection, you can enter the item number or the name of the architecture. " \
           "To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'. The architecture choices are listed below.")
     print_list(architecture_options)
+    f = "{0:>12s} -- {1:<30s}\n"
+    print("Example regex:\n"+f.format("r:.*","All architectures")+f.format("r:slc7.*","All slc7 releases"))
     user_response = input('--> ')
     if user_response.isdigit() and (int(user_response) > len(architecture_options) or int(user_response) < 0):
         raise Exception("The response was out of bounds. You must enter a listed value.\n")
@@ -115,6 +117,9 @@ def toolgenie():
     print("\nSelect a CMSSW release. For a single release, you can enter the item number or the name of the release. " \
           "To select multiple relases, you can use a regex using the syntax \'r:<regex>\'. The release choices are listed below.")
     print_list(label_options)
+    f = "{0:>37s} -- {1:<50s}\n"
+    print("Example regex:\n"+f.format("r:.*","All CMSSW releases for the previously selected architectures")+
+          f.format("r:CMSSW_1._[0,6]_.*(?<!pre[0-9])$","All CMSSW releases with X=10-19, Y=0 or 6, Z=anything, and which aren't a pre release"))
     user_response = input('--> ')
     if user_response.isdigit() and (int(user_response) > len(label_options) or int(user_response) < 0):
         raise Exception("The response was out of bounds. You must enter a listed value.\n")
