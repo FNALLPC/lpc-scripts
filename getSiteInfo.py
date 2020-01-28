@@ -125,7 +125,7 @@ def getCurlInfo(url):
 
 def findFacilityFromAlias(site, debug = False):
     body = getCurlInfo('https://cmsweb.cern.ch/sitedb/data/prod/site-names')
-    if debug: print "getSiteInfo::findFcilityFromAlias()"
+    if debug: print "getSiteInfo::findFacilityFromAlias()"
     for ibody in body.split('\n'):
         if len(ibody.split('"'))<6: continue
         current_alias = ibody.split('"')[5]
@@ -203,13 +203,10 @@ def addInformationNotInSiteDB(site, debug = False):
         site.local_redirector    = siteDBDict[site.alias][0] if siteDBDict[site.alias][0]!='' else "None"
         site.local_path_to_store = siteDBDict[site.alias][2] if siteDBDict[site.alias][2]!='' else "None"
         site.gsiftp_endpoint     = site.pfn
-        if siteDBDict[site.alias][1]!='':
-            site.xrootd_endpoint = siteDBDict[site.alias][1]
-        else:
-            site.create_xrootd_endpoint()
-    else:
-        if site.xrootd_endpoint == '':
-            site.create_xrootd_endpoint()
+        site.xrootd_endpoint = siteDBDict[site.alias][1]
+
+    if site.xrootd_endpoint == '':
+        site.create_xrootd_endpoint()
 
 
 def getSiteInfo(site_alias="", site=None, cric=False, debug=False, fast=False, print_json=False, quiet=False):
@@ -228,8 +225,6 @@ def getSiteInfo(site_alias="", site=None, cric=False, debug=False, fast=False, p
             getSiteResponsibilities(site, debug)
     else:
         jstr = getCurlInfo('https://cms-cric.cern.ch/api/cms/site/query/?json&name='+site.alias)
-        #if print_json:
-        #    print jstr
         data = json.loads(jstr)[site.alias]
         site.facility = data['facility']
 
