@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from collections import namedtuple
-import os, re, readline
+import argparse, os, re, readline
 import xml.etree.ElementTree as ET
 
 # https://stackoverflow.com/questions/21731043/use-of-input-raw-input-in-python-2-and-3
@@ -66,13 +66,14 @@ def parse_release_map():
     with open("/cvmfs/cms.cern.ch/releases.map",'r') as release_map:
         for line in release_map:
             line_list = process_map_line(line)
-            # Skip releases listed in the map file who are names after branches. These tend to not have actual folders on CVMFS.
+            # Skip releases listed in the map file who are named after branches. Typically these take the form 'CMSSW_#_#_X'. These entries tend to not have actual folders on CVMFS.
             if re.search("^(CMSSW)_[0-9]*_[0-9]*_[^0-9].*(?m)",line_list[1]):
                 continue
             relmap.append(Release._make(line_list))
     return relmap
 
-def print_list(l):
+def print_list(l, type='item'):
+    print("The " + type + " choices are listed below.")
     for i, item in enumerate(l,1):
         print('{0:{width}}'.format(i,width=len(str(len(l)))), '. ' + item, sep='',end='\n')
 
@@ -81,18 +82,23 @@ def process_map_line(line):
     line_split = [x.split('=')[1] for x in line_split]
     return [int(x) if x.isdigit() else x for x in line_split]
 
-def toolgenie():
+def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False):
     # Get the initial release map from CVMFS
     relmap = parse_release_map()
 
     # Fileter on the SCRAM architecture
     architecture_options = get_architectures(relmap)
-    print("Select an architecture. For a single architecture selection, you can enter the item number or the name of the architecture. " \
-          "To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'. The architecture choices are listed below.")
-    print_list(architecture_options)
-    f = "{0:>12s} -- {1:<30s}\n"
-    print("Example regex:\n"+f.format("r:.*","All architectures")+f.format("r:slc7.*","All slc7 releases"))
-    user_response = input('--> ')
+    user_response = ""
+    if architecture == None:
+        print("Select an architecture. For a single architecture selection, you can enter the item number or the name of the architecture. " \
+              "To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'.")
+        if not quiet: print_list(architecture_options,"architecture")
+        f = "{0:>12s} -- {1:<30s}\n"
+        print("Example regex:\n"+f.format("r:.*","All architectures")+f.format("r:slc7.*","All slc7 releases"))
+        user_response = input('--> ')
+        print()
+    else:
+        user_response = architecture
     if user_response.isdigit() and (int(user_response) > len(architecture_options) or int(user_response) < 0):
         raise Exception("The response was out of bounds. You must enter a listed value.\n")
     if not user_response.isdigit() and not 'r:' in user_response and user_response not in architecture_options:
@@ -108,19 +114,24 @@ def toolgenie():
     selected_releases = filter_on_architecture(relmap,selected_architectures)
 
     # Print the selected architectures so that the user know what they did
-    print("\nBased on your input ({0}), the selected SCRAM architectures are:".format(user_response))
+    print("Based on your input ({0}), the selected SCRAM architectures are:".format(user_response))
     for a in selected_architectures:
         print('\t{0}'.format(a))
+    print()
     
     # Filter on the CMSSW label
     label_options = get_labels(selected_releases)
-    print("\nSelect a CMSSW release. For a single release, you can enter the item number or the name of the release. " \
-          "To select multiple relases, you can use a regex using the syntax \'r:<regex>\'. The release choices are listed below.")
-    print_list(label_options)
-    f = "{0:>37s} -- {1:<50s}\n"
-    print("Example regex:\n"+f.format("r:.*","All CMSSW releases for the previously selected architectures")+
-          f.format("r:CMSSW_1._[0,6]_.*(?<!pre[0-9])$","All CMSSW releases with X=10-19, Y=0 or 6, Z=anything, and which aren't a pre release"))
-    user_response = input('--> ')
+    if cmssw == None:
+        print("Select a CMSSW release. For a single release, you can enter the item number or the name of the release. " \
+              "To select multiple relases, you can use a regex using the syntax \'r:<regex>\'.")
+        if not quiet: print_list(label_options,"release")
+        f = "{0:>37s} -- {1:<50s}\n"
+        print("Example regex:\n"+f.format("r:.*","All CMSSW releases for the previously selected architectures")+
+              f.format("r:CMSSW_1._[0,6]_.*(?<!pre[0-9])$","All CMSSW releases with X=10-19, Y=0 or 6, Z=anything, and which aren't a pre release"))
+        user_response = input('--> ')
+        print()
+    else:
+        user_response = cmssw
     if user_response.isdigit() and (int(user_response) > len(label_options) or int(user_response) < 0):
         raise Exception("The response was out of bounds. You must enter a listed value.\n")
     if not user_response.isdigit() and not 'r:' in user_response and user_response not in label_options:
@@ -136,9 +147,10 @@ def toolgenie():
     selected_releases = filter_on_label(selected_releases,selected_labels)
 
     # Print the selected release(s) so that the user knows what they did
-    print("\nYou selected the release(s):")
+    print("You selected the release(s):")
     for r in selected_releases:
         print('\t{0}'.format(r))
+    print()
 
     # Get all paths to the tool configuration files
     paths_to_toollists = []
@@ -155,15 +167,19 @@ def toolgenie():
         tools = os.listdir(path)
         tools = [t.replace('.xml','') for t in tools]
         selected_releases_tools.append(Toolbox(selected_releases[ipath],tools,path))
-    print("\nWARNING! The following configuration paths do no exist and were skipped.")
+    if len(skipped_paths) > 0: print("\nWARNING! The following configuration paths do not exist and were skipped.")
     for p in skipped_paths:
         print("\t"+p)
 
     # Make a unique list of tools and filter based on the selected tool
     tool_options = get_tools(selected_releases_tools)
-    print("\nSelect a tool. You can enter the tool index or the name of the tool. To select multiple tools use a comma separated list. The tool choices are listed below.")
-    print_list(tool_options)
-    user_response = input('--> ')
+    if tool == None:
+        print("Select a tool. You can enter the tool index or the name of the tool. To select multiple tools use a comma separated list.")
+        if not quiet: print_list(tool_options,"tool")
+        user_response = input('--> ')
+        print()
+    else:
+        user_response = tool
     user_response = user_response.replace(' ','').split(',')
     selected_toolboxes = {}
     for ur in user_response:
@@ -199,21 +215,56 @@ def toolgenie():
                             path = child2.attrib['default']
                             break
             paths.append(path)
-        tool = Tool(key,config_paths,paths,versions,[t.Release.architecture for t in selected_toolboxes[key]],[t.Release.label for t in selected_toolboxes[key]])
-        tools.append(tool)
+        current_tool = Tool(key,config_paths,paths,versions,[t.Release.architecture for t in selected_toolboxes[key]],[t.Release.label for t in selected_toolboxes[key]])
+        tools.append(current_tool)
 
         # Print the information for a given tool
-        min_widths = [len(max(tool.Architectures, key=len)),len(max(tool.Releases, key=len)),len(max(tool.Versions, key=len)),len(max(tool.ConfigPaths, key=len)),len(max(tool.Locations, key=len))]
-        f = "| {0:^{width0}s} | {1:^{width1}s} | {2:^{width2}s} | {3:^{width3}s} | {4:^{width4}s} |"
-        print("The following is a summary of the information for the tool \'{0}\':".format(tool.Name))
-        print(f.format("SCRAM_ARCH","Release","Version","ConfigPath","Location",
-                        width0=min_widths[0],width1=min_widths[1],width2=min_widths[2],
-                        width3=min_widths[3],width4=min_widths[4]))
-        for index, value in enumerate(tool.Locations):
-            print(f.format(tool.Architectures[index],tool.Releases[index],tool.Versions[index],tool.ConfigPaths[index],tool.Locations[index],
-                           width0=min_widths[0],width1=min_widths[1],width2=min_widths[2],width3=min_widths[3],width4=min_widths[4]),'\n')
+        headers = ["SCRAM_ARCH","Release","Version","ConfigPath","Location"]
+        min_widths = [len(max(current_tool.Architectures, key=len)),len(max(current_tool.Releases, key=len)),len(max(current_tool.Versions, key=len)),len(max(current_tool.ConfigPaths, key=len)),len(max(current_tool.Locations, key=len))]
+        min_widths = [max(len(headers[i]),m) for i,m in enumerate(min_widths)]
+        f = "| {0:^{5}s} | {1:^{6}s} | {2:^{7}s} | {3:^{8}s} | {4:^{9}s} |"
+        print("The following is a summary of the information for the tool \'{0}\':".format(current_tool.Name))
+        print(f.format(*(headers+min_widths)))
+        print(f.format(*(['-'*width for width in min_widths]+min_widths)))
+        f = f.replace("^","<")
+        for index, value in enumerate(current_tool.Locations):
+            print(f.format(current_tool.Architectures[index],current_tool.Releases[index],current_tool.Versions[index],current_tool.ConfigPaths[index],current_tool.Locations[index],*min_widths))
+        print('\n')
 
     return tools
 
 if __name__ == "__main__":
-    toolgenie()
+    parser = argparse.ArgumentParser(description="""
+Get some information about the tool(s) in a given CMSSW release or set of releases.
+
+This tool works for both python2 and python3.
+
+Dependencies:
+=============
+  - Must already have mounted /cvmfs/cms.cern.ch
+
+Examples of how to run:
+=======================
+python toolgenie.py --help
+python toolgenie.py
+python toolgenie.py slc7_.* 1 1
+""",
+                                     epilog="",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("architecture", metavar='arch', nargs='?', default=None, help="The architecture(s) to look at. Can be a regex, " \
+                                                                                    "a single architecture, or if known, the index of " \
+                                                                                    "the architecture from the list of all architectures. " \
+                                                                                    "(default = %(default)s)")
+    parser.add_argument("cmssw", metavar='cmssw', nargs='?', default=None, help="The CMSSW release(s) to look at. Can be a regex, " \
+                                                                              "a single CMSSW release, or if known, the index of " \
+                                                                              "the CMSSW release from the list of all of the releases. " \
+                                                                              "(default = %(default)s)")
+    parser.add_argument("tool", metavar='tool', nargs='?', default=None, help="The tool(s) for which to compile the table of information. " \
+                                                                            "You can enter the tool index or the name of the tool. " \
+                                                                            "To select multiple tools use a comma separated list." \
+                                                                            "(default = %(default)s)")
+    parser.add_argument("-q", "--quiet", default=False, action="store_true", help="Limit the number of printouts (default = %(default)s)")
+
+    args = parser.parse_args()
+
+    toolgenie(**vars(args))
