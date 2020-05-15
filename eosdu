@@ -20,8 +20,9 @@ getSizeOf() {
 	SERVER=$2
 	MATCH=$3
 	# default case
+	# 'eos ls -l path' now prints size of dirs *inside* path, so go up to dirname and select basename
 	if [ -z "$MATCH" ]; then
-		eos $SERVER find -d $DIR | awk "$FIXFIND" | xargs -I ARG -d '\n' -n1 -P4 bash -c 'awk "$0" <(eos $2 ls -l $1)' '{sum+=$5} END {print sum}' ARG $SERVER | awk '{sum+=$0} END {print sum}'
+		eos $SERVER ls -l $(dirname $DIR) | grep " $(basename $DIR)"'$' | awk '{print $5}'
 	# matching case
 	else
 		eos $SERVER ls -l $DIR | grep "$MATCH" | awk '{sum+=$5} END {print sum}'
