@@ -1,8 +1,22 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from collections import namedtuple
-import argparse, os, re, readline
+from enum import Enum
+from six.moves import urllib
+import argparse
+import os
+import re
+import readline
+import ssl
 import xml.etree.ElementTree as ET
+
+class MapSource(Enum):
+    CVMFS = 'CVMFS'
+    GITHUB = 'GITHUB'
+    CMSSDT = 'CMSSDT'
+
+    def __str__(self):
+        return self.value
 
 # https://stackoverflow.com/questions/21731043/use-of-input-raw-input-in-python-2-and-3
 # Bind raw_input to input in Python 2.
@@ -33,6 +47,13 @@ class Tool(namedtuple('Tool',['Name','ConfigPaths','Locations','Versions','Archi
 def filter_on_architecture(release_map, architectures):
     return [release for release in release_map if any(architecture in release.architecture for architecture in architectures)]
 
+# We want to skip releases listed in the map file who are named after branches
+# Typically these take the form 'CMSSW_#_#_X'
+# These entries tend to not have actual folders on CVMFS
+# Returns true if a line containing this pattern is found
+def filter_on_branch_name(line):
+    return re.search("^(CMSSW)_[0-9]*_[0-9]*_[^0-9].*(?m)",line)
+
 def filter_on_label(release_map, labels):
     return [release for release in release_map if any(label in release.label for label in labels)]
 
@@ -61,15 +82,35 @@ def get_tools(toolbox_list):
                 tools.append(tool)
     return sorted(tools)
 
-def parse_release_map():
+def parse_map_lines(lines):
     relmap = []
-    with open("/cvmfs/cms.cern.ch/releases.map",'r') as release_map:
-        for line in release_map:
-            line_list = process_map_line(line)
-            # Skip releases listed in the map file who are named after branches. Typically these take the form 'CMSSW_#_#_X'. These entries tend to not have actual folders on CVMFS.
-            if re.search("^(CMSSW)_[0-9]*_[0-9]*_[^0-9].*(?m)",line_list[1]):
-                continue
-            relmap.append(Release._make(line_list))
+    for line in lines:
+        line_list = process_map_line(line)
+        if filter_on_branch_name(line_list[1]):
+            continue
+        relmap.append(Release._make(line_list))
+    return relmap
+
+def parse_release_map(source=MapSource.GITHUB):
+    relmap = []
+    
+    if source in [MapSource.GITHUB, MapSource.CMSSDT]:
+        url = ""
+        if source == MapSource.GITHUB:
+            url = "https://raw.githubusercontent.com/cms-sw/cms-bot/master/releases.map"
+        else:
+            url = "https://cmssdt.cern.ch/SDT/releases.map"
+        ssl._create_default_https_context = ssl._create_unverified_context
+        file = urllib.request.urlopen(url)
+        contents = file.read()
+        contents = contents.split(b'\n')[:-1]
+        relmap = parse_map_lines(contents)
+    elif source == MapSource.CVMFS:
+        with open("/cvmfs/cms.cern.ch/releases.map",'r') as release_map:
+            relmap = parse_map_lines(release_map)
+    else:
+        raise Exception("Unknown source for the architecture/release map.\n")
+        
     return relmap
 
 def print_list(l, type='item'):
@@ -82,9 +123,9 @@ def process_map_line(line):
     line_split = [x.split('=')[1] for x in line_split]
     return [int(x) if x.isdigit() else x for x in line_split]
 
-def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False):
-    # Get the initial release map from CVMFS
-    relmap = parse_release_map()
+def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapSource.GITHUB):
+    # Get the initial release map from CVMFS/GITHUB/CMSSDT
+    relmap = parse_release_map(source)
 
     # Fileter on the SCRAM architecture
     architecture_options = get_architectures(relmap)
@@ -264,6 +305,7 @@ python toolgenie.py slc7_.* 1 1
                                                                             "To select multiple tools use a comma separated list." \
                                                                             "(default = %(default)s)")
     parser.add_argument("-q", "--quiet", default=False, action="store_true", help="Limit the number of printouts (default = %(default)s)")
+    parser.add_argument("-s", "--source", default=MapSource.GITHUB, type=MapSource, choices=list(MapSource), help="Specify the source of the release map (default= %(default)s)")
 
     args = parser.parse_args()
 
