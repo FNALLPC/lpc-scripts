@@ -37,7 +37,7 @@ usage(){
 	echo "./containerize.sh -t <tag> -b docker://docker.io/aperloff/cms-cvmfs-docker:light -C -v"
 	echo "podman run --rm -it <tag>"
 
-    exit $EXIT
+    exit ${EXIT}
 }
 
 # process options
@@ -74,10 +74,14 @@ dependency_check() {
 	if [ ! command -v buildah &> /dev/null ]; then
 		EXIT=$?
 		echo "Buildah could not be found!"
-		exit $EXIT
+		exit ${EXIT}
 	elif [[ -z "${subuid}" ]] || [[ -z "${subgid}" ]]; then
 		echo "Unable to find a subuid or subgid for id=`id -u` in /etc/subuid and /etc/subgid."
 		echo "Contact user support or your sysadmin for further assistance."
+	elif [[ ! -d /cvmfs/cms.cern.ch ]] || [ ! cvmfs_config probe cms.cern.ch &> /dev/null ]; then
+		EXIT=$?
+		echo "/cvmfs/cms.cern.ch must be mounted on the host to proceed."
+		exit ${EXIT}
 	fi
 
 	if [ ! command -v podman &> /dev/null ]; then
