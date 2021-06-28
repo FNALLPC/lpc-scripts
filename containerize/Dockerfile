@@ -9,12 +9,13 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.vendor="FNAL"
 
 USER cmsusr
-WORKDIR /home/${USER}
+ARG USERDIR_BUILD=/home/${USER}
+WORKDIR ${USERDIR_BUILD}
 
 ARG CMSSW_VERSION
 ARG TAR
 
-COPY ${TAR} /home/${USER}/${CMSSW_VERSION}.tar.gz
+COPY ${TAR} ${USERDIR_BUILD}/${CMSSW_VERSION}.tar.gz
 RUN pwd && \
     ls -alh ./ && \
     source /cvmfs/cms.cern.ch/cmsset_default.sh && \
@@ -45,6 +46,7 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
 
 ARG CMSSW_VERSION
 ARG NONPRIVILEGED_USER=cmsusr
-WORKDIR /home/${NONPRIVILEGED_USER}
-COPY --from=builder --chown=cmsusr:cmsusr /home/cmsusr/${CMSSW_VERSION} /home/${NONPRIVILEGED_USER}/${CMSSW_VERSION}
+ARG USERDIR=/home/${NONPRIVILEGED_USER}
+WORKDIR ${USERDIR}
+COPY --from=builder --chown=cmsusr:cmsusr /home/cmsusr/${CMSSW_VERSION} ${USERDIR}/${CMSSW_VERSION}
 RUN pwd && ls -alh ./
