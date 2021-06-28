@@ -8,13 +8,13 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.description="Provides a runnable CMSSW image with $ANALYSIS_NAME pre-installed." \
       org.label-schema.vendor="FNAL"
 
-USER    cmsusr
-WORKDIR /home/cmsusr
+USER cmsusr
+WORKDIR /home/${USER}
 
 ARG CMSSW_VERSION
 ARG TAR
 
-COPY ${TAR} /home/cmsusr/${CMSSW_VERSION}.tar.gz
+COPY ${TAR} /home/${USER}/${CMSSW_VERSION}.tar.gz
 RUN pwd && \
     ls -alh ./ && \
     source /cvmfs/cms.cern.ch/cmsset_default.sh && \
@@ -44,6 +44,7 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.vendor="FNAL"
 
 ARG CMSSW_VERSION
-COPY --from=builder --chown=cmsusr:cmsusr /home/cmsusr/${CMSSW_VERSION} /home/cmsusr/${CMSSW_VERSION}
-WORKDIR /home/cmsusr
+ARG NONPRIVILEGED_USER=cmsusr
+WORKDIR /home/${NONPRIVILEGED_USER}
+COPY --from=builder --chown=cmsusr:cmsusr /home/cmsusr/${CMSSW_VERSION} /home/${NONPRIVILEGED_USER}/${CMSSW_VERSION}
 RUN pwd && ls -alh ./

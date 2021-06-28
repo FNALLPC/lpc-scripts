@@ -9,8 +9,10 @@ CLEAN="false"
 DIR="/home/cmsusr"
 FILE="Dockerfile"
 JSON="${SCRIPTPATH}/cache.json"
+ROOT="/scratch/containers/`whoami`/"
 TAG="analysis"
 TAR=""
+USER="cmsusr"
 VCS="--exclude-vcs"
 
 usage(){
@@ -24,8 +26,10 @@ usage(){
     echo "-d [dir]            project installation area inside the container (default = ${DIR})"
     echo "-f [file]           the Dockerfile to use to build the image (default = ${FILE})"
     echo "-j [json]           path to the json file containing the path to cache (default = ${JSON})"
+    echo "-r [root]           change the 'root' and 'runroot' locations for buildah (default = ${ROOT})"
     echo "-t [tag]            the tag to use for the image (default = ${TAG})"
     echo "-T [tar]            path to an existing tarball to use (default = ${TAR})"
+    echo "-u [user]           override the default username in the container (default = ${USER})"
     echo "-v                  include the vcs directories (default = False)"
     echo "-h                  display this message and exit"
     echo
@@ -39,7 +43,7 @@ usage(){
 }
 
 # process options
-while getopts "b:cCd:f:j:t:T:vh" opt; do
+while getopts "b:cCd:f:j:r:t:T:u:vh" opt; do
     case "$opt" in
     b) BASE=$OPTARG
     ;;
@@ -53,9 +57,13 @@ while getopts "b:cCd:f:j:t:T:vh" opt; do
     ;;
     j) JSON=$OPTARG
     ;;
+    r) ROOT=$OPTARG
+    ;;
     t) TAG=$OPTARG
     ;;
     T) TAR=$OPTARG
+    ;;
+    u) USER=$OPTARG
     ;;
     v) VCS=""
     ;;
@@ -74,6 +82,10 @@ dependency_check() {
     elif [ ! command -v jq &> /dev/null ];then
         EXIT=$?
         echo "jq could not be found!"
+        exit ${EXIT}
+    elif [[ ! -d ${ROOT} ]]; then
+        EXIT=$?
+        echo "The directory ${ROOT} does not exist and cannot be used for buildah's 'root' or 'runroot' directory."
         exit ${EXIT}
     elif [[ -z "${subuid}" ]] || [[ -z "${subgid}" ]]; then
         echo "Unable to find a subuid or subgid for id=`id -u` in /etc/subuid and /etc/subgid."
@@ -149,9 +161,9 @@ fi
 
 # build the image
 echo -e "Building the image ..."
-buildah --root /scratch/containers/`whoami`/ --runroot /scratch/containers/`whoami`/ bud -f ${FILE} -t ${TAG} -v /cvmfs/cms.cern.ch:/cvmfs/cms.cern.ch \
+buildah --root ${ROOT} --runroot ${ROOT} bud -f ${FILE} -t ${TAG} -v /cvmfs/cms.cern.ch:/cvmfs/cms.cern.ch \
         --build-arg BUILDIMAGE=${BUILDIMAGE} --build-arg BASEIMAGE=${BASE} --build-arg BUILD_DATE=`date -u +%Y-%m-%d` --build-arg ANALYSIS_NAME=${NAME} \
-        --build-arg CMSSW_VERSION=${CMSSW_VERSION} --build-arg TAR=`realpath --relative-to="${PWD}" "${TAR}"`
+        --build-arg CMSSW_VERSION=${CMSSW_VERSION} --build-arg TAR=`realpath --relative-to="${PWD}" "${TAR}"` --build-arg NONPRIVILEGED_USER=${USER}
 
 # Cleanup the temporary files
 if [[ "${CLEAN}" == "true" ]]; then
