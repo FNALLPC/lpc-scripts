@@ -8,8 +8,9 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.description="Provides a runnable CMSSW image with $ANALYSIS_NAME pre-installed." \
       org.label-schema.vendor="FNAL"
 
-USER cmsusr
-ARG USERDIR_BUILD=/home/${USER}
+ARG USER_BUILD=cmsusr
+ARG USERDIR_BUILD=/home/${USER_BUILD}
+USER ${USER_BUILD}
 WORKDIR ${USERDIR_BUILD}
 
 ARG CMSSW_VERSION
@@ -45,8 +46,11 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.vendor="FNAL"
 
 ARG CMSSW_VERSION
+ARG USER_BUILD=cmsusr
 ARG NONPRIVILEGED_USER=cmsusr
+ARG USERDIR_BUILD=/home/${USER_BUILD}
 ARG USERDIR=/home/${NONPRIVILEGED_USER}
 WORKDIR ${USERDIR}
-COPY --from=builder --chown=cmsusr:cmsusr /home/cmsusr/${CMSSW_VERSION} ${USERDIR}/${CMSSW_VERSION}
+
+COPY --from=builder --chown=cmsusr:cmsusr ${USERDIR_BUILD}/${CMSSW_VERSION} ${USERDIR}/${CMSSW_VERSION}
 RUN pwd && ls -alh ./
