@@ -1,0 +1,12 @@
+{
+	"Directories" : [
+		{
+			"Path" : "${CMSSW_BASE}/test",
+			"Cache" : 1
+		},
+		{
+			"Path" : "${CMSSW_BASE}/tmp",
+			"Cache" : 1
+		}
+	]
+}
