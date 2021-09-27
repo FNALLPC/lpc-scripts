@@ -1,5 +1,23 @@
 #!/bin/bash -e
 
+clean(){
+    local args=("$@")
+    local tarball=${args[0]}
+    local list_of_cache_files=("${args[@]:1}")
+    echo -e "Cleaning the temporary files made while building the images ..."
+    echo -e "\tRemoving the tarball ${tarball} ..."
+    rm ${tarball}
+    for f in "${list_of_cache_files[@]}"; do
+        echo -e "\tRemoving the cache file ${f} ..."
+        rm ${f}
+    done
+}
+
+splitpath(){
+    local ret="-C $(dirname ${1}) $(basename ${1})"
+    echo ${ret}
+}
+
 CWD=${PWD}
 SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
@@ -8,7 +26,9 @@ KEEPCACHE="--exclude-caches-all"
 CLEAN="false"
 DIR="/home/cmsusr"
 FILE="${SCRIPTPATH}/Dockerfile"
+INCLUDE=""
 JSON="${SCRIPTPATH}/cache.json"
+MAXTARSIZE=104857600
 ROOT="/scratch/containers/`whoami`/"
 TAG="analysis"
 TAR=""
@@ -25,7 +45,9 @@ usage(){
     echo "-C                  cleanup the temporary files when finished making the image (default = ${CLEAN})"
     echo "-d [dir]            project installation area inside the container (default = ${DIR})"
     echo "-f [file]           the Dockerfile to use to build the image (default = ${FILE})"
+    echo "-t [include]        list specific files or directories (absolute path) to include in the tarball (default = ${INCLUDE})"
     echo "-j [json]           path to the json file containing the path to cache (default = ${JSON})"
+    echo "-m [maxsize]        the maximum size (in bytes) of the tarball before returning an error (defaul = ${MAXTARSIZE})"
     echo "-r [root]           change the 'root' and 'runroot' locations for buildah (default = ${ROOT})"
     echo "-t [tag]            the tag to use for the image (default = ${TAG})"
     echo "-T [tar]            path to an existing tarball to use (default = ${TAR})"
@@ -43,7 +65,7 @@ usage(){
 }
 
 # process options
-while getopts "b:cCd:f:j:r:t:T:u:vh" opt; do
+while getopts "b:cCd:f:i:j:m:r:t:T:u:vh" opt; do
     case "$opt" in
     b) BASE=$OPTARG
     ;;
@@ -55,7 +77,11 @@ while getopts "b:cCd:f:j:r:t:T:u:vh" opt; do
     ;;
     f) FILE=$OPTARG
     ;;
+    i) INCLUDE+=("$OPTARG")
+    ;;
     j) JSON=$OPTARG
+    ;;
+    m) MAXTARSIZE=$OPTARG
     ;;
     r) ROOT=$OPTARG
     ;;
@@ -137,13 +163,37 @@ done
 if [ -z "${TAR}" ]; then
     echo -e "Making the ${CMSSW_VERSION} tarball ... "
     cd ${CMSSW_BASE}/..
-    tar ${KEEPCACHE} ${VCS} -zcf ${CMSSW_VERSION}.tar.gz -C ${CMSSW_BASE}/.. ${CMSSW_VERSION}
+
+    INDIVIDUAL_FILES=""
+    for f in ${INCLUDE[@]}; do
+        if [[ "${f}" == "" ]]; then
+            continue
+        fi
+        INDIVIDUAL_FILES="${INDIVIDUAL_FILES} $(splitpath ${f})"
+    done
+
+    tar ${KEEPCACHE} ${VCS} -zcf ${CMSSW_VERSION}.tar.gz -C ${CMSSW_BASE}/.. ${CMSSW_VERSION} ${INDIVIDUAL_FILES}
     TAR="${CMSSW_VERSION}.tar.gz"
 fi
 
 # show the tarball
 if [ -e "${TAR}" ]; then
     ls -lth ${TAR}
+fi
+
+# Output an error and exit if the tarball is too large
+TARSIZE=$(stat -c%s "$TAR")
+if (( TARSIZE > MAXTARSIZE )); then
+    echo "ERROR::The tarball generated is too large ($TARSIZE bytes)."
+    echo "A large tarball can lead to really large image sizes."
+    echo "Either cache unneeded directories or increase the allowable tarball size (-m [maxsize])."
+
+    # Even though the code is stopped early, we still want to cleanup the temporary files
+    if [[ "${CLEAN}" == "true" ]]; then
+        clean ${TAR} ${list_of_cache_files[@]}
+    fi
+
+    exit -1
 fi
 
 # select the correct build image based on the SCRAM_ARCH of the CMSSW release
@@ -167,13 +217,7 @@ buildah --root ${ROOT} --runroot ${ROOT} bud -f ${FILE} -t ${TAG} -v /cvmfs/cms.
 
 # Cleanup the temporary files
 if [[ "${CLEAN}" == "true" ]]; then
-    echo -e "Cleaning the temporary files made while building the images ..."
-    echo -e "\tRemoving the tarball ${TAR} ..."
-    rm ${TAR}
-    for f in "${list_of_cache_files[@]}"; do
-        echo -e "\tRemoving the cache file ${f} ..."
-        rm ${f}
-    done
+    clean ${TAR} ${list_of_cache_files[@]}
 fi
 
 # Return to the original working directory
