@@ -64,4 +64,3 @@ jobs:
         SHELLCHECK_OPTS: -s bash
       with:
         format: tty
-      continue-on-error: true
