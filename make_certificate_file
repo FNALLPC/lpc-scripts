@@ -42,6 +42,7 @@ if globus_exists; then
 	exit 1
 fi
 
+# shellcheck disable=SC2016
 usercert='${HOME}/.globus/usercert.pem'
 userkey='${HOME}/.globus/userkey.pem'
 read -e -p "Enter the full path of the usercert file: " -i "${HOME}/.globus/usercert.pem" input
@@ -58,7 +59,7 @@ read -e -p "Enter the output path and name to the p12 certificate file: " -i "${
 mycert="${input:-$name}"
 read -e -p "Enter a description of this certificate file: " -i "my browser cert for <year>" input
 desc="${input:-$name}"
-if [ ! -e $(dirname "${mycert}") ]; then
+if [ ! -e "$(dirname "${mycert}")" ]; then
 	echo -e "\tUnable to find the output path for the certificate file."
 	exit 3
 fi

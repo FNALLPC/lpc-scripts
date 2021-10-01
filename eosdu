@@ -11,6 +11,7 @@ case $(uname) in
 esac
 
 # awk command to modify the EOS (citrine) find command and return the output to something like the previous versions
+# shellcheck disable=SC2016
 FIXFIND='{lfn=$1; while(substr(lfn,1,6)!="/store"&&length(lfn)>=6) { lfn = substr(lfn,2) }; print lfn}'
 
 # This will sum the size of all content inside the LFN and return the number in B
@@ -22,7 +23,7 @@ getSizeOf() {
 	# default case
 	# 'eos ls -l path' now prints size of dirs *inside* path, so go up to dirname and select basename
 	if [ -z "$MATCH" ]; then
-		eos "$SERVER" ls -l $(dirname "$DIR") | grep " $(basename "$DIR")"'$' | awk '{print $5}'
+		eos "$SERVER" ls -l "$(dirname "$DIR")" | grep " $(basename "$DIR")"'$' | awk '{print $5}'
 	# matching case
 	else
 		eos "$SERVER" ls -l "$DIR" | grep "$MATCH" | awk '{sum+=$5} END {print sum}'
@@ -155,7 +156,7 @@ if [[ -n "$RECURSE" ]]; then
 			continue
 		fi
 		theSize=$(printSizeOf "$i" "$SERVER" "$MATCH")
-		$ECHO "`basename $i` $theSize"
+		$ECHO "$(basename "$i") $theSize"
 	done
 else
 	printSizeOf "$DIR" "$SERVER" "$MATCH"

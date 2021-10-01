@@ -57,7 +57,7 @@ if [ ! -d "$HOME/.globus" ]; then
 fi
 
 curdir=$PWD
-cd "$HOME/.globus"
+cd "$HOME/.globus" || exit 2
 
 echo -e "Running the command \`openssl pkcs12 -in ${cert_file} -clcerts -nokeys -out usercert.pem\`"
 openssl pkcs12 -in "${cert_file}" -clcerts -nokeys -out usercert.pem
