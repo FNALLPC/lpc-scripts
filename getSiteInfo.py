@@ -1,7 +1,18 @@
-#!/usr/bin/env python
-import os, sys, getopt, argparse, fnmatch, errno, subprocess, shlex, pycurl, json, traceback
-from StringIO import StringIO
+#!/usr/bin/env python3
+from __future__ import absolute_import
+import argparse
 from collections import namedtuple
+import errno
+import fnmatch
+import getopt
+import json
+import os
+import pycurl
+import shlex
+from StringIO import StringIO
+import subprocess
+import sys
+import traceback
 
 siteDBDict = {
 #   alias:               (local_redirector,          'xrootd_endpoint',                     'local_path_to_store')

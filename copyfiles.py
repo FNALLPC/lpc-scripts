@@ -1,6 +1,15 @@
-#!/usr/bin/env python
-import os, sys, getopt, argparse, fnmatch, errno, subprocess, shlex, getSiteInfo
+#!/usr/bin/env python3
+from __future__ import absolute_import
+import argparse
+import errno
+import fnmatch
+import getopt
+import getSiteInfo
+import os
+import shlex
+import subprocess
 from subprocess import call
+import sys
 
 class Error(EnvironmentError):
     pass
@@ -14,8 +23,8 @@ class Location(getSiteInfo.Site):
 
     def print_location_info(self,fast):
         self.print_site_info(fast)
-        print("\tusername:",self.username)
-        print("\tPath:",self.path)
+        print("\tusername:", self.username)
+        print("\tPath:", self.path)
 
 def run_checks(RECURSIVE,DEPTH,STARTpath,ENDpath):
     print("Running checks on options ...")

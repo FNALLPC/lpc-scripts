@@ -1,3 +1,5 @@
+#!/bin/env python3
+from __future__ import absolute_import
 from commands import getoutput
 from recursiveFileList import getFileList, getDirList
 from optparse import OptionParser
@@ -6,9 +8,9 @@ from optparse import OptionParser
 # John Hakala 3/28/2017
 parser = OptionParser()
 parser.add_option("-s", "--source", dest="source",
-                  help="the source directory"      )
+                  help="the source directory")
 parser.add_option("-t", "--target", dest="target",
-                  help="the target directory"      )
+                  help="the target directory")
 (options, args) = parser.parse_args()
 
 if options.source is None or options.target is None:

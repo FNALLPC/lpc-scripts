@@ -1,11 +1,26 @@
-#!/usr/bin/env python
-import os, sys, argparse, subprocess, datetime, fnmatch, re, itertools, platform
+#!/usr/bin/env python3
+from __future__ import absolute_import
+import argparse
+import datetime
+import fnmatch
+import itertools
+import os
+import platform
+import re
+import subprocess
+import sys
 from collections import namedtuple
 
 class Version(namedtuple('Version', 'version_info_0 version_info_1 version_info_2 version_info_3 path notes lcg_versions_architectures_setups')):
     __slots__ = ()
     def __eq__(self, major, mid, minor):
-        return self.version_info_0 == major and self.version_info_1 == mid and self.version_info_2 == minor
+        return (self.version_info_0 == major and
+                self.version_info_1 == mid and
+                self.version_info_2 == minor)
+    def __hash(self):
+        return hash((self.version_info_0,
+                     self.version_info_1,
+                     self.version_info_2))
     def getVersionString(self):
     	if self.version_info_0 == 0 and self.version_info_1 == 0 and self.version_info_2 == 0:
     		return ""
@@ -168,24 +183,24 @@ python getPythonVersions.py -g 2.7
 Note: The grep options are not applied to the current, system, or CMSSW python versions.
 
 Mischief managed!""")
-	parser.add_argument("-a","--agrep", help="Select for a given architecture based on a pattern (default = %(default)s).",
-	                    default="")
-	parser.add_argument("-d","--debug", help="Shows some extra information in order to debug this program (default = %(default)s).",
-						default=False, action="store_true")
-	parser.add_argument("-g","--grep", help="Select for a given python version pattern (default = %(default)s).",
-	                    default="")
-	parser.add_argument("-l","--lgrep", help="Select for a given LCG version based on a pattern (default = %(default)s).",
-	                    default="")
-	parser.add_argument("-p","--pgrep", help="Select for a given path based on a pattern (default = %(default)s).",
-	                    default="")
-	parser.add_argument("--path", help="Replace the setup path with the path to the python executable (default = %(default)s).",
-	                    default=False, action="store_true")
-	parser.add_argument("-s","--shorten", help="Shorten the setup path of the CVMFS releases (default = %(default)s).",
-	                    default=False, action="store_true")
-	parser.add_argument('--version', help="The verion number of this program.",
-						action='version', version='%(prog)s 1.0b')
-	parser.add_argument("-w","--width", help="Maximum width of the setup string (default = %(default)s).",
-	                    default=120, type=int)
+	parser.add_argument("-a","--agrep", default="",
+                            help="Select for a given architecture based on a pattern (default = %(default)s).")
+	parser.add_argument("-d","--debug", default=False, action="store_true",
+                            help="Shows some extra information in order to debug this program (default = %(default)s).")
+	parser.add_argument("-g","--grep", default="",
+                            help="Select for a given python version pattern (default = %(default)s).")
+	parser.add_argument("-l","--lgrep", default="",
+                            help="Select for a given LCG version based on a pattern (default = %(default)s).")
+	parser.add_argument("-p","--pgrep", default="",
+                            help="Select for a given path based on a pattern (default = %(default)s).")
+	parser.add_argument("--path", default=False, action="store_true",
+                            help="Replace the setup path with the path to the python executable (default = %(default)s).")
+	parser.add_argument("-s","--shorten", default=False, action="store_true",
+                            help="Shorten the setup path of the CVMFS releases (default = %(default)s).")
+	parser.add_argument('--version', action='version', version='%(prog)s 1.0b',
+                            help="The verion number of this program.")
+	parser.add_argument("-w","--width", default=120, type=int,
+                            help="Maximum width of the setup string (default = %(default)s).")
 	args = parser.parse_args()
 
 	if(args.debug):
