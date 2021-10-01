@@ -1,0 +1,66 @@
+name: Lint Code
+
+on: [push, pull_request]
+
+jobs:
+  python3_compatibility:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 2.7.18
+      uses: actions/setup-python@v2
+      with:
+        python-version: 2.7.18
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pylint
+    - name: Print some python and pylint information
+      run: |
+        python --version
+        pylint --version
+    - name: Analysing the code for python3 compatibility
+      run: |
+        pylint --py3k `ls -R|grep .py$|xargs`
+
+  pylint:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pylint
+    - name: Print some python and pylint information
+      run: |
+        python --version
+        pylint --version
+    - name: Analysing the code for functionality and style
+      run: |
+        pylint `ls -R|grep .py$|xargs`
+
+  ShellCheck:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: ShellCheck
+      # https://github.com/koalaman/shellcheck
+      # https://github.com/marketplace/actions/shellcheck
+      # You may pin to the exact commit or the version.
+      # uses: ludeeus/action-shellcheck@94e0aab03ca135d11a35e5bfc14e6746dc56e7e9
+      # uses: ludeeus/action-shellcheck@1.1.0
+      uses: ludeeus/action-shellcheck@master
+      env:
+        SHELLCHECK_OPTS: -s bash
+      with:
+        format: tty
