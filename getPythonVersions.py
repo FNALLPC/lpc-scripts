@@ -129,7 +129,7 @@ def dictEntryToFormattedVersion(python_version,version,width):
 def dictToFormattedVersions(dict,width):
 	versions = []
 	for python_version, version in sorted(dict.iteritems(),
-                                              key=lambda (k,v): tuple(map(int,k.split('.')[0:3]) + 
+                                              key=lambda k, v: tuple(map(int,k.split('.')[0:3]) + 
                                                                       [k.split('.')[3] if len(k.split('.'))>3 else ""])):
 		versions += dictEntryToFormattedVersion(python_version,version,width)
 	return versions

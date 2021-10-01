@@ -2,17 +2,17 @@
 
 proxy_exists(){
     echo "Check for certificates in $HOME/.globus ... "
-    if [ -d $HOME/.globus ]; then
-        if [ $1 != "N" ] && [ $1 != "Y" ]; then
+    if [ -d "$HOME/.globus" ]; then
+        if [ "$1" != "N" ] && [ "$1" != "Y" ]; then
 			echo -e "\tUnknown option \"$1\". You must specify [Y/N] to delete or keep any existing .pem files."
 			return 0
-		elif [ -a $HOME/.globus/usercert.pem ] && [ -a $HOME/.globus/userkey.pem ] && [ $1 == "N" ]; then
+		elif [ -a "$HOME/.globus/usercert.pem" ] && [ -a "$HOME/.globus/userkey.pem" ] && [ "$1" == "N" ]; then
             echo -e "\tCertificates exist. Doing nothing."
             return 0
-        elif [ -a $HOME/.globus/usercert.pem ] && [ -a $HOME/.globus/userkey.pem ] && [ $1 == "Y" ]; then
+        elif [ -a "$HOME/.globus/usercert.pem" ] && [ -a "$HOME/.globus/userkey.pem" ] && [ "$1" == "Y" ]; then
 			echo -e "\tCertificates exist, but removing them in order to replace them."
-			rm -f $HOME/.globus/usercert.pem
-			rm -f $HOME/.globus/userkey.pem
+			rm -f "$HOME/.globus/usercert.pem"
+			rm -f "$HOME/.globus/userkey.pem"
 			return 1
 		fi
     fi
@@ -35,7 +35,7 @@ echo -e "$USAGE"
 
 read -e -p "If certificates already exist would you like to overwrite them? [Y/N]: " -i "N" overwrite
 
-if proxy_exists ${overwrite:-$name}; then
+if proxy_exists "${overwrite:-$name}"; then
     exit
 fi
 
@@ -43,27 +43,27 @@ cert_file='mycert.p12'
 read -e -p "Enter the full path of the p12 certificate file (default: mycert.p12): " -i "mycert.p12" input
 cert_file="${input:-$name}"
 
-if [ ! -e ${cert_file} ]; then
+if [ ! -e "${cert_file}" ]; then
 	echo -e "\tUnable to find the certificate file ${cert_file}."
 	echo -e "\tNOTE: The home character \"~\" is not expanded and must not be used."
-	exit -1
+	exit 1
 fi
 
 echo "Installing certificates from ${cert_file} ... "
 
-if [ ! -d $HOME/.globus ]; then
-    mkdir $HOME/.globus
-	chmod 700 $HOME/.globus
+if [ ! -d "$HOME/.globus" ]; then
+    mkdir "$HOME/.globus"
+	chmod 700 "$HOME/.globus"
 fi
 
 curdir=$PWD
-cd $HOME/.globus
+cd "$HOME/.globus"
 
 echo -e "Running the command \`openssl pkcs12 -in ${cert_file} -clcerts -nokeys -out usercert.pem\`"
-openssl pkcs12 -in ${cert_file} -clcerts -nokeys -out usercert.pem
+openssl pkcs12 -in "${cert_file}" -clcerts -nokeys -out usercert.pem
 res=$?
 echo -e "Running the command \`openssl pkcs12 -in ${cert_file} -nocerts -out userkey.pem\`"
-openssl pkcs12 -in ${cert_file} -nocerts -out userkey.pem
+openssl pkcs12 -in "${cert_file}" -nocerts -out userkey.pem
 res=$((res + $?))
 chmod 400 userkey.pem
 res=$((res + $?))
@@ -82,6 +82,6 @@ else
 	echo -e " and try the process manually."
 fi
 
-cd $curdir
+cd "$curdir" || exit "$res"
 
 exit $res

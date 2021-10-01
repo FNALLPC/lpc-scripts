@@ -3,8 +3,8 @@
 proxy_exists(){
     echo "Check for certificates in $HOME/.globus"
     echo "..."
-    if [ -d $HOME/.globus ]; then
-        if [ -a $HOME/.globus/usercert.pem ] && [ -a $HOME/.globus/userkey.pem ]; then
+    if [ -d "$HOME/.globus" ]; then
+        if [ -a "$HOME/.globus/usercert.pem" ] && [ -a "$HOME/.globus/userkey.pem" ]; then
             echo "Certificates exist. Doing nothing."
             return 0
         fi
@@ -40,10 +40,10 @@ hostname="${input:-$name}"
 
 read -e -p "Enter username for $hostname: " username
 
-if [ ! -d $HOME/.globus ]; then
-    mkdir $HOME/.globus
+if [ ! -d "$HOME/.globus" ]; then
+    mkdir "$HOME/.globus"
 fi
-scp -p -r "$username@$hostname:./.globus/*" $HOME/.globus
+scp -p -r "$username@$hostname:./.globus/*" "$HOME/.globus"
 
 res=$?
 

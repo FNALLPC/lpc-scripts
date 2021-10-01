@@ -5,7 +5,7 @@
 #  Created by Jesus Orduna, Kevin Pedro, and Alexx Perloff
 #
 
-case `uname` in
+case $(uname) in
 	Linux) ECHO="echo -e" ;;
 	*) ECHO="echo" ;;
 esac
@@ -22,10 +22,10 @@ getSizeOf() {
 	# default case
 	# 'eos ls -l path' now prints size of dirs *inside* path, so go up to dirname and select basename
 	if [ -z "$MATCH" ]; then
-		eos $SERVER ls -l $(dirname $DIR) | grep " $(basename $DIR)"'$' | awk '{print $5}'
+		eos "$SERVER" ls -l $(dirname "$DIR") | grep " $(basename "$DIR")"'$' | awk '{print $5}'
 	# matching case
 	else
-		eos $SERVER ls -l $DIR | grep "$MATCH" | awk '{sum+=$5} END {print sum}'
+		eos "$SERVER" ls -l "$DIR" | grep "$MATCH" | awk '{sum+=$5} END {print sum}'
 	fi
 }
 
@@ -35,9 +35,9 @@ getFilesOf() {
 	SERVER=$2
 	MATCH=$3
 	if [ -z "$MATCH" ]; then
-		eos $SERVER find -d $DIR | awk "$FIXFIND" | xargs -d '\n' -n1 -P4 eos $SERVER ls | wc -l | awk '{sum+=$0} END {print sum}'
+		eos "$SERVER" find -d "$DIR" | awk "$FIXFIND" | xargs -d '\n' -n1 -P4 eos "$SERVER" ls | wc -l | awk '{sum+=$0} END {print sum}'
 	else
-		eos $SERVER ls $DIR | grep "$MATCH" | wc -l
+		eos "$SERVER" ls "$DIR" | grep "$MATCH" | wc -l
 	fi
 }
 
@@ -48,9 +48,9 @@ printSizeOf() {
 
 	# Get the size of the LFN
 	if [ -z "$FILES" ]; then
-		theSize=$(getSizeOf $DIR $SERVER $MATCH)
+		theSize=$(getSizeOf "$DIR" "$SERVER" "$MATCH")
 	else
-		theSize=$(getFilesOf $DIR $SERVER $MATCH)
+		theSize=$(getFilesOf "$DIR" "$SERVER" "$MATCH")
 	fi
 
 	# Empty directories will evaluate true
@@ -69,7 +69,7 @@ printSizeOf() {
 		if [ "$theSize" -eq "0" ] ; then
 			echo "0 ${baseUnit}"
 		elif [ -z "$HUMAN" ]; then
-			echo ${theSize}
+			echo "${theSize}"
 		else
 			# Compute an index to refer to B, KB, MB, GB, TB, PB, EB, ZB, YB
 			declare -a thePrefix=( [0]="" [1]="K"  [2]="M" [3]="G" [4]="T" [5]="P" [6]="E" [7]="Z" [8]="Y")
@@ -150,13 +150,13 @@ DIR=$1
 
 #"recursive" option
 if [[ -n "$RECURSE" ]]; then
-	for i in $(eos $SERVER find -d --maxdepth 1 $DIR | awk "$FIXFIND"); do
+	for i in $(eos "$SERVER" find -d --maxdepth 1 "$DIR" | awk "$FIXFIND"); do
 		if [[ "$i" == *"$DIR" || "$i" == *"$DIR"/ ]]; then
 			continue
 		fi
-		theSize=$(printSizeOf $i $SERVER $MATCH)
+		theSize=$(printSizeOf "$i" "$SERVER" "$MATCH")
 		$ECHO "`basename $i` $theSize"
 	done
 else
-	printSizeOf $DIR $SERVER $MATCH
+	printSizeOf "$DIR" "$SERVER" "$MATCH"
 fi

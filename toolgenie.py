@@ -10,8 +10,6 @@ import ssl
 import xml.etree.ElementTree as ET
 import six.moves
 
-# pylint: disable=raw_input-builtin
-# pylint: disable=redefined-builtin
 # pylint: disable=unexpected-special-method-signature
 
 class MapSource(Enum):
@@ -28,8 +26,8 @@ class CMSSW(namedtuple('CMSSW', 'type major mid minor extra note')):
     '''
     __slots__ = ()
     def __eq__(self,type,major,mid,minor,extra,note):
-        return (self.type == type and self.major == major and 
-                self.mid == mid and self.minor == minor and 
+        return (self.type == type and self.major == major and
+                self.mid == mid and self.minor == minor and
                 self.extra == extra and self.note == note)
     def __hash__(self):
         return hash((self.type, self.major, self.mid, self.minor, self.extra, self.note))
@@ -45,7 +43,7 @@ class Release(namedtuple('Release', 'architecture label type state prodarch')):
     def __hash__(self):
         return hash((self.architecture, self.label))
     def get_release_string(self):
-        return ("architecture=%s;label=%s;type=%s;state=%s;prodarch=%s;" % 
+        return ("architecture=%s;label=%s;type=%s;state=%s;prodarch=%s;" %
                 (self.architecture,self.label,self.type,self.state,self.prodarch))
 
 class Toolbox(namedtuple('Toolbox',['Release','Tools','Path'])):
@@ -106,7 +104,7 @@ def parse_map_lines(lines):
 
 def parse_release_map(source=MapSource.GITHUB):
     relmap = []
-    
+
     if source in [MapSource.GITHUB, MapSource.CMSSDT]:
         url = ""
         if source == MapSource.GITHUB:
@@ -123,7 +121,7 @@ def parse_release_map(source=MapSource.GITHUB):
             relmap = parse_map_lines(release_map)
     else:
         raise Exception("Unknown source for the architecture/release map.\n")
-        
+
     return relmap
 
 def print_list(l, type='item'):
@@ -143,7 +141,7 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
     # Fileter on the SCRAM architecture
     architecture_options = get_architectures(relmap)
     user_response = ""
-    if architecture == None:
+    if architecture is None:
         print("Select an architecture. For a single architecture selection, " \
               "you can enter the item number or the name of the architecture. " \
               "To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'.")
@@ -163,7 +161,7 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
         user_response_altered = user_response[2:]
         selected_architectures = [ao for ao in architecture_options if re.search(user_response_altered,ao)]
     else:
-        selected_architectures = [architecture_options[int(user_response)-1] 
+        selected_architectures = [architecture_options[int(user_response)-1]
                                   if user_response.isdigit() else user_response]
     if len(selected_architectures) == 0:
         raise Exception("Uh oh! No architectures were found based on your input ({0}).".format(user_response))
@@ -173,11 +171,11 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
     print("Based on your input ({0}), the selected SCRAM architectures are:".format(user_response))
     for a in selected_architectures:
         print('\t{0}'.format(a))
-    print()
-    
+    print("")
+
     # Filter on the CMSSW label
     label_options = get_labels(selected_releases)
-    if cmssw == None:
+    if cmssw is None:
         print("Select a CMSSW release. For a single release, " \
               "you can enter the item number or the name of the release. " \
               "To select multiple relases, you can use a regex using the syntax \'r:<regex>\'.")
@@ -192,7 +190,7 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
         user_response = cmssw
     if user_response.isdigit() and (int(user_response) > len(label_options) or int(user_response) < 0):
         raise Exception("The response was out of bounds. You must enter a listed value.\n")
-    if not user_response.isdigit() and not 'r:' in user_response and user_response not in label_options:
+    if not user_response.isdigit() and 'r:' not in user_response and user_response not in label_options:
         raise Exception("The response was not in the list of acceptable CMSSW releases.\n")
     selected_labels = []
     if 'r:' in user_response:
@@ -233,7 +231,7 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
 
     # Make a unique list of tools and filter based on the selected tool
     tool_options = get_tools(selected_releases_tools)
-    if tool == None:
+    if tool is None:
         print("Select a tool. You can enter the tool index or the name of the tool. " \
               "To select multiple tools use a comma separated list.")
         if not quiet: print_list(tool_options,"tool")

@@ -2,17 +2,17 @@
 
 proxy_exists(){
     echo "Check for certificates/keys in $2 ... "
-    if [ -d $2 ]; then
-        if [ $1 != "N" ] && [ $1 != "Y" ]; then
+    if [ -d "$2" ]; then
+        if [ "$1" != "N" ] && [ "$1" != "Y" ]; then
 			echo -e "\tUnknown option \"$1\". You must specify [Y/N] to delete or keep any existing .pem/.key files."
 			return 0
-		elif [ -a $2/myCert.pem ] && [ -a $2/myCert.key ] && [ $1 == "N" ]; then
+		elif [ -a "$2/myCert.pem" ] && [ -a "$2/myCert.key" ] && [ "$1" == "N" ]; then
             echo -e "\tCertificates/keys exist. Doing nothing."
             return 0
-        elif [ -a $2/myCert.pem ] && [ -a $2/myCert.key ] && [ $1 == "Y" ]; then
+        elif [ -a "$2/myCert.pem" ] && [ -a "$2/myCert.key" ] && [ "$1" == "Y" ]; then
 			echo -e "\tCertificates/keys exist, but removing them in order to replace them."
-			rm -f $2/myCert.pem
-			rm -f $2/myCert.key
+			rm -f "$2/myCert.pem"
+			rm -f "$2/myCert.key"
 			return 1
 		fi
     fi
@@ -36,7 +36,7 @@ echo -e "$USAGE"
 read -e -p "Where would you like to put the output files (default: ${HOME}/private/): " -i "${HOME}/private/" output_dir 
 read -e -p "If certificates already exist would you like to overwrite them? [Y/N]: " -i "N" overwrite
 
-if proxy_exists ${overwrite:-$name} ${output_dir:-$name}; then
+if proxy_exists "${overwrite:-$name}" "${output_dir:-$name}"; then
     exit
 fi
 
@@ -44,38 +44,38 @@ cert_file='${HOME}/.globus/mycert.p12'
 read -e -p "Enter the full path of the p12 certificate file (default: ${HOME}/.globus/mycert.p12): " -i "${HOME}/.globus/mycert.p12" input
 cert_file="${input:-$name}"
 
-if [ ! -e ${cert_file} ]; then
+if [ ! -e "${cert_file}" ]; then
 	echo -e "\tUnable to find the certificate file ${cert_file}."
 	echo -e "\tNOTE: The home character \"~\" is not expanded and must not be used."
-	exit -1
+	exit 1
 fi
 
 echo "Installing certificates from ${cert_file} ... "
 
-if [ ! -d $output_dir ]; then
+if [ ! -d "$output_dir" ]; then
 	echo -e "\tMaking the output directory and changing the permissions to"
-    mkdir $output_dir
-	chmod 700 $output_dir
+    mkdir "$output_dir"
+	chmod 700 "$output_dir"
 fi
 
 curdir=$PWD
-cd $output_dir
+cd "$output_dir" || exit 2
 
 echo -e "Running the command \`openssl pkcs12 -clcerts -nokeys -in ${cert_file} -out ${output_dir}/myCert.pem\`"
-openssl pkcs12 -clcerts -nokeys -in ${cert_file} -out ${output_dir}/myCert.pem
+openssl pkcs12 -clcerts -nokeys -in "${cert_file}" -out "${output_dir}/myCert.pem"
 res=$?
 echo -e "Running the command \`openssl pkcs12 -nocerts -in ${cert_file} -out ${output_dir}/myCert.tmp.key\`"
-openssl pkcs12 -nocerts -in ${cert_file} -out ${output_dir}/myCert.tmp.key
+openssl pkcs12 -nocerts -in "${cert_file}" -out "${output_dir}/myCert.tmp.key"
 res=$((res + $?))
 echo -e "Running the command \`openssl rsa -in ${output_dir}/myCert.tmp.key -out ${output_dir}/myCert.key\`"
-openssl rsa -in ${output_dir}/myCert.tmp.key -out ${output_dir}/myCert.key
+openssl rsa -in "${output_dir}/myCert.tmp.key" -out "${output_dir}/myCert.key"
 res=$((res + $?))
 echo -e "Removing the intermediate files"
-rm ${output_dir}/myCert.tmp.key
+rm "${output_dir}/myCert.tmp.key"
 res=$((res + $?))
-chmod 644 ${output_dir}/myCert.pem
+chmod 644 "${output_dir}/myCert.pem"
 res=$((res + $?))
-chmod 400 ${output_dir}/myCert.key
+chmod 400 "${output_dir}/myCert.key"
 res=$((res + $?))
 
 if [ "$res" = "0" ]; then
@@ -91,6 +91,6 @@ else
 	echo -e " and try the process manually."
 fi
 
-cd $curdir
+cd "$curdir" || exit $res
 
 exit $res
