@@ -44,12 +44,12 @@ def getDirList(dirName):
 if __name__ == "__main__":
   from sys import argv
   from pprint import pprint
-  print "--------\nmap:"
+  print("--------\nmap:")
   pprint(mapDir("", argv[1]))
-  print "--------\n"
-  print "--------\nfiles:"
+  print("--------\n")
+  print("--------\nfiles:")
   pprint(getFileList(argv[1]))
-  print "--------\n"
-  print "--------\ndirs:"
+  print("--------\n")
+  print("--------\ndirs:")
   pprint(getDirList(argv[1]))
-  print "--------"
+  print("--------")

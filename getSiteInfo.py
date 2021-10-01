@@ -85,7 +85,7 @@ class Site(object):
         self.xrootd_endpoint = "root://%s/" % (self.fqdn)
 
 def run_checks(quiet):
-    if not quiet: print "Running sanity checks before proceeding ..."
+    if not quiet: print("Running sanity checks before proceeding ...")
 
     #check the python version
     min_python_version = (2,7,11)
@@ -98,7 +98,7 @@ def run_checks(quiet):
         process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
         returncode = process.wait()
         if returncode!=0 :
-            print "\tWARNING::You must have a valid proxy for this script to work.\nRunning \"voms-proxy-init -voms cms\"...\n"
+            print("\tWARNING::You must have a valid proxy for this script to work.\nRunning \"voms-proxy-init -voms cms\"...\n")
             subprocess.call("voms-proxy-init -voms cms -valid 192:00", shell=True)
             process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
             returncode = process.wait()
@@ -125,22 +125,22 @@ def getCurlInfo(url):
 
 def findFacilityFromAlias(site, debug = False):
     body = getCurlInfo('https://cmsweb.cern.ch/sitedb/data/prod/site-names')
-    if debug: print "getSiteInfo::findFacilityFromAlias()"
+    if debug: print("getSiteInfo::findFacilityFromAlias()")
     for ibody in body.split('\n'):
         if len(ibody.split('"'))<6: continue
         current_alias = ibody.split('"')[5]
-        if debug: print "\t",ibody," current_alias:", current_alias
+        if debug: print("\t",ibody," current_alias:", current_alias)
         if current_alias == site.alias:
             site.facility = ibody.split('"')[3]
             site.types.append(ibody.split('"')[1])
 
 def findSEInfo(site, debug = False):
     body = getCurlInfo('https://cmsweb.cern.ch/sitedb/data/prod/site-resources')
-    if debug: print "getSiteInfo::findSEInfo()"
+    if debug: print("getSiteInfo::findSEInfo()")
     for ibody in body.split('\n'):
         if len(ibody.split('"'))<8: continue
         current_site = ibody.split('"')[1]
-        if debug: print "\t",ibody," current_site:", current_site
+        if debug: print("\t",ibody," current_site:", current_site)
         if current_site == site.facility:
             site.element_type = ibody.split('"')[3]
             site.fqdn = ibody.split('"')[5]
@@ -148,12 +148,12 @@ def findSEInfo(site, debug = False):
 
 def getSiteAssociations(site, debug = False):
     body = getCurlInfo('https://cmsweb.cern.ch/sitedb/data/prod/site-associations')
-    if debug: print "getSiteInfo::getSiteAssociations()"
+    if debug: print("getSiteInfo::getSiteAssociations()")
     for ibody in body.split('\n'):
         if len(ibody.split('"'))<5: continue
         current_parent = ibody.split('"')[1]
         current_child = ibody.split('"')[3]
-        if debug: print "\t",ibody," current_parent:", current_parent," current_child:", current_child
+        if debug: print("\t",ibody," current_parent:", current_parent," current_child:", current_child)
         if current_parent == site.facility:
             site.child_sites.append(ibody.split('"')[3])
         if current_child == site.facility:
@@ -163,11 +163,11 @@ def getSiteAssociations(site, debug = False):
 
 def getPledges(site, debug = False):
     body = getCurlInfo('https://cmsweb.cern.ch/sitedb/data/prod/resource-pledges')
-    if debug: print "getSiteInfo::getPledges()"
+    if debug: print("getSiteInfo::getPledges()")
     for ibody in body.split('\n'):
         if len(ibody.split('"'))<3: continue
         current_site = ibody.split('"')[1]
-        if debug: print "\t",ibody," current_site:", current_site
+        if debug: print("\t",ibody," current_site:", current_site)
         if current_site == site.facility:
             pledge_list = ibody.split('"')[2].split(",")
             local_store = float(pledge_list[6].split(']')[0]) if is_number(pledge_list[6].split(']')[0]) else "null"
@@ -175,24 +175,24 @@ def getPledges(site, debug = False):
 
 def getSiteResponsibilities(site, debug = False):
     body = getCurlInfo('https://cmsweb.cern.ch/sitedb/data/prod/site-responsibilities')
-    if debug: print "getSiteInfo::getSiteResponsibilities()"
+    if debug: print("getSiteInfo::getSiteResponsibilities()")
     for ibody in body.split('\n'):
         if len(ibody.split('"'))<6: continue
         current_site = ibody.split('"')[3]
-        if debug: print "\t",ibody," current_site:", current_site
+        if debug: print("\t",ibody," current_site:", current_site)
         if current_site == site.facility:
             site.responsibilities.append(Responsibility(ibody.split('"')[1],ibody.split('"')[5],""))
 
 def getLFNAndPFNFromPhEDEx(site, debug = False):
     jstr = getCurlInfo('https://cmsweb.cern.ch/phedex/datasvc/json/prod/lfn2pfn?node='+site.alias+'&lfn=/store/user&protocol=srmv2')
-    if debug: print "getSiteInfo::getPDNFromPhEDEx()"
+    if debug: print("getSiteInfo::getPDNFromPhEDEx()")
     try:
         result = json.loads(jstr)
         site.lfn = result['phedex']['mapping'][0]['lfn']
         site.pfn = result['phedex']['mapping'][0]['pfn']
     except:
-        print "Unable to get the LFN and PFN for", site.alias, "from PhEDEx"
-        print jstr
+        print("Unable to get the LFN and PFN for", site.alias, "from PhEDEx")
+        print(jstr)
         if debug: raise RuntimeError(traceback.format_exc()) 
         site.lfn = "None"
         site.pfn = "None"
@@ -230,7 +230,7 @@ def getSiteInfo(site_alias="", site=None, cric=False, debug=False, fast=False, p
 
         jstr = getCurlInfo('https://cms-cric.cern.ch/api/cms/glideinentry/query/list/?json&site='+site.alias)
         if print_json:
-            print jstr
+            print(jstr)
         key, data = json.loads(jstr).popitem()
         site.job_manager = data['queues'][0]['ce_jobmanager']
         site.responsibilities.append(Responsibility("<Unknown>","Site Admin Contact",data['computeunits'][0]['site_admin_contacts']))
@@ -240,7 +240,7 @@ def getSiteInfo(site_alias="", site=None, cric=False, debug=False, fast=False, p
     addInformationNotInSiteDB(site, debug)
     
     # print the site information to the console
-    if not quiet and not print_json: print site.__str__(fast)
+    if not quiet and not print_json: print(site.__str__(fast))
     
     return site
 
@@ -253,19 +253,29 @@ if __name__ == '__main__':
                                      federation sites (https://cmsweb.cern.ch/sitedb/data/prod/federations-sites), and the
                                      federation pledges (https://cmsweb.cern.ch/sitedb/data/prod/federations-pledges).""",
                                      epilog="And those are the options available. Deal with it.")
-    parser.add_argument("site_alias", help="The alias of the server whose information you want to retrieve")
-    parser.add_argument("-c","--cric", help="Gather site information from CRIC rather than SiteDB. This feature is currently experimental. (default=%(default)s)", action="store_true")
-    parser.add_argument("-d","--debug", help="Shows some extra information in order to debug this program (default=%(default)s)", action="store_true")
-    parser.add_argument("-f","--fast", help="Retrieves less information, but will run faster (default=%(default)s)", action="store_true")
-    parser.add_argument("-j","--print_json", help="Print the full site information from CRIC in JSON format. This feature is only available with the --cric option (default=%(default)s)", action="store_true")
-    parser.add_argument("-q","--quiet", help="Print the resulting information to stdout (default=%(default)s)", action="store_true")
-    parser.add_argument('--version', action='version', version='%(prog)s v1.1') #Change to 2.0 (Franklin) when CRIC functionality complete.
+    parser.add_argument("site_alias",
+                        help="The alias of the server whose information you want to retrieve")
+    parser.add_argument("-c","--cric", action="store_true",
+                        help="Gather site information from CRIC rather than SiteDB. " \
+                        "This feature is currently experimental. (default=%(default)s)")
+    parser.add_argument("-d","--debug", action="store_true",
+                        help="Shows some extra information in order to debug this program (default=%(default)s)")
+    parser.add_argument("-f","--fast", action="store_true",
+                        help="Retrieves less information, but will run faster (default=%(default)s)")
+    parser.add_argument("-j","--print_json", action="store_true",
+                        help="Print the full site information from CRIC in JSON format. " \
+                        "This feature is only available with the --cric option (default=%(default)s)")
+    parser.add_argument("-q","--quiet", action="store_true",
+                        help="Print the resulting information to stdout (default=%(default)s)")
+    parser.add_argument('--version', action='version', version='%(prog)s v1.1')
+    #Change to 2.0 (Franklin) when CRIC functionality complete.
+    
     args = parser.parse_args()
 
     if(args.debug):
-         print 'Number of arguments:', len(sys.argv), 'arguments.'
-         print 'Argument List:', str(sys.argv)
-         print "Argument ", args
+         print('Number of arguments:', len(sys.argv), 'arguments.')
+         print('Argument List:', str(sys.argv))
+         print("Argument ", args)
     
     getSiteInfo(**vars(args))
 

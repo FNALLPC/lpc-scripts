@@ -14,42 +14,44 @@ class Location(getSiteInfo.Site):
 
     def print_location_info(self,fast):
         self.print_site_info(fast)
-        print "\tusername:",self.username
-        print "\tPath:",self.path
+        print("\tusername:",self.username)
+        print("\tPath:",self.path)
 
 def run_checks(RECURSIVE,DEPTH,STARTpath,ENDpath):
-    print "Running checks on options ..."
+    print("Running checks on options ...")
 
     if RECURSIVE :
-        print "\trun_checks::recursive option chosen so depth set to large value (9999)"
+        print("\trun_checks::recursive option chosen so depth set to large value (9999)")
         DEPTH = 9999
 
     with open(os.devnull, 'wb') as devnull:
         process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
         returncode = process.wait()
         if returncode!=0 :
-            print "\tWARNING::You must have a valid proxy for this script to work.\nRunning \"voms-proxy-init -voms cms\"...\n"
+            print("\tWARNING::You must have a valid proxy for this script to work.\nRunning \"voms-proxy-init -voms cms\"...\n")
             subprocess.call("voms-proxy-init -voms cms -valid 192:00", shell=True)
             process = subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'), stdout=devnull, stderr=subprocess.STDOUT)
             returncode = process.wait()
             if returncode!=0 :
-                print "\tERROR::Sorry, but I still could not find your proxy.\nWithout a valid proxy, this program will fail spectacularly.\nThe program will now exit." 
+                print("\tERROR::Sorry, but I still could not find your proxy.\n"
+                      "Without a valid proxy, this program will fail spectacularly.\n"
+                      "The program will now exit.")
                 sys.exit()
 
     if STARTpath=="./":
-        print "\trun_checks::STARTpath chosen as the current working directory ("+str(os.environ['PWD'])+")"
+        print("\trun_checks::STARTpath chosen as the current working directory ("+str(os.environ['PWD'])+")")
         STARTpath=os.environ['PWD']
     if ENDpath=="./":
         ENDpath=""
 
-    print
+    print()
     return (RECURSIVE, DEPTH, STARTpath, ENDpath)
 
 def init_commands(STARTsite, ENDsite, PROTOCOL, RECURSIVE=False, VERBOSE=False,
                   QUIET=False, STREAMS=15, TIMEOUT=1800, DRYRUN=False, ADDITIONAL=""):
     global args
     if args.debug:
-        print "copyfiles::init_commands() initializing the start and end commands based on the chosen protocol ("+str(PROTOCOL)+")"
+        print("copyfiles::init_commands() initializing the start and end commands based on the chosen protocol ("+str(PROTOCOL)+")")
 
     copy_command = ""
     start_location = ""
@@ -80,13 +82,13 @@ def init_commands(STARTsite, ENDsite, PROTOCOL, RECURSIVE=False, VERBOSE=False,
         elif STARTsite.xrootd_endpoint!='None':
             start_location += " root://"+STARTsite.xrootd_endpoint+"//store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
         else:
-            print "ERROR::copyfiles::init_commands() The STARTsite must have either a gsiftp or xrootd endpoint"
+            print("ERROR::copyfiles::init_commands() The STARTsite must have either a gsiftp or xrootd endpoint")
             STARTsite.print_site_info(fast=True)
             sys.exit(-1)
     elif PROTOCOL=="xrootd" and STARTsite.alias!='local':
         start_location += " root://"+STARTsite.xrootd_endpoint+"//store/user/"+STARTsite.username+"/"+STARTsite.path+"/"
     else:
-        print "ERROR::copyfiles::init_commands() could not figure out how to format the start command."
+        print("ERROR::copyfiles::init_commands() could not figure out how to format the start command.")
         sys.exit(-2)
 
     if PROTOCOL=="xrootd" and ENDsite.alias=='local':
@@ -99,19 +101,19 @@ def init_commands(STARTsite, ENDsite, PROTOCOL, RECURSIVE=False, VERBOSE=False,
         elif ENDsite.xrootd_endpoint!='None':
             end_location = "root://"+ENDsite.xrootd_endpoint+"//store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
         else:
-            print "ERROR::copyfiles::init_commands() The ENDsite must have either a gsiftp or xrootd endpoint"
+            print("ERROR::copyfiles::init_commands() The ENDsite must have either a gsiftp or xrootd endpoint")
             ENDsite.print_site_info(fast=True)
             sys.exit(-3)
     elif PROTOCOL=="xrootd" and ENDsite.alias!='local':
         end_location = "root://"+ENDsite.xrootd_endpoint+"//store/user/"+ENDsite.username+"/"+ENDsite.path+"/"
     else:
-        print "ERROR::copyfiles::init_commands() could not figure out how to format the end command."
+        print("ERROR::copyfiles::init_commands() could not figure out how to format the end command.")
         sys.exit(-4)
 
     if args.debug:
-        print "\tcopy_command:",copy_command
-        print "\tstart_location:",start_location
-        print "\tend_location:",end_location
+        print("\tcopy_command:", copy_command)
+        print("\tstart_location:", start_location)
+        print("\tend_location:", end_location)
 
     return (copy_command,start_location,end_location)
 
@@ -138,24 +140,24 @@ def make_directory(ENDsite, path, PROTOCOL):
                 cmd = "gfal-mkdir gsiftp://"+ENDsite.gsiftp_endpoint+"/"+path
             elif ENDsite.xrootd_endpoint!='None':
                 cmd = "gfal-mkdir root://"+ENDsite.xrootd_endpoint+"/"+path
-            print "\tcmd:",cmd
+            print("\tcmd:", cmd)
             os.system(cmd)
             made_dir = True
         elif os.system(cmd)!=0 and PROTOCOL=="xrootd":
             cmd = "xrdfs root://"+ENDsite.xrootd_endpoint+"/ mkdir "+path
-            print "\tcmd:",cmd
+            print("\tcmd:", cmd)
             os.system(cmd)
             made_dir = True
 
     if not made_dir:
-        print "make_directory:"
-        print "\tThere was a problem making the directory",path
-        print "\tEither the destination directory already exists or the make_directory command is broken"
+        print("make_directory:")
+        print("\tThere was a problem making the directory", path)
+        print("\tEither the destination directory already exists or the make_directory command is broken")
     elif args.debug:
-        print "make_directory:"
-        print "\tstatus: success"
-        print "\tdirectory:",path
-        print "\tprotocol:",PROTOCOL
+        print("make_directory:")
+        print("\tstatus: success")
+        print("\tdirectory:", path)
+        print("\tprotocol:", PROTOCOL)
 
 def get_list_of_files(PROTOCOL, STARTsite, SAMPLE, path, DEBUG=False):
     FILES_UNFILTERED = []
@@ -165,8 +167,8 @@ def get_list_of_files(PROTOCOL, STARTsite, SAMPLE, path, DEBUG=False):
         else:
             FILES_UNFILTERED = os.listdir(path)
         if DEBUG:
-            print "get_list_of_files:"
-            print "\tList of files (unfiltered):",FILES_UNFILTERED
+            print("get_list_of_files:")
+            print("\tList of files (unfiltered):", FILES_UNFILTERED)
     else:
         if PROTOCOL=="gfal":
             if STARTsite.gsiftp_endpoint!='None':
@@ -176,8 +178,8 @@ def get_list_of_files(PROTOCOL, STARTsite, SAMPLE, path, DEBUG=False):
         elif PROTOCOL=="xrootd":
             options = "xrdfs root://"+STARTsite.xrootd_endpoint+"/ ls "+path 
         if DEBUG:
-            print "get_list_of_files:"
-            print "\tCommand: ",options
+            print("get_list_of_files:")
+            print("\tCommand: ", options)
         proc = subprocess.Popen(options, shell=True, stdout=subprocess.PIPE).communicate()[0]
         FILES_UNFILTERED = proc.splitlines()
         FILES_UNFILTERED = [x.strip(' ') for x in FILES_UNFILTERED]
@@ -225,7 +227,7 @@ def do_diff(FILES, PROTOCOL, ENDsite, SAMPLE, dst):
     else:
         get_list_of_files(PROTOCOL, ENDsite, SAMPLE, dst, args.debug)
     FILES_DIFF = [f for f in FILES if f not in FILES1 or os.path.isdir(dst+"/"+f)]
-    print "Adding an additional "+str(len(FILES_DIFF))+" files/folders"
+    print("Adding an additional " + str(len(FILES_DIFF)) + " files/folders")
     return FILES_DIFF
 
 def remoteIsDir(STARTsite,srcname):
@@ -240,13 +242,13 @@ def copytree(STARTsite, src, ENDsite, dst, DEPTH, CURRENTdepth, symlinks=False,
     global args
 
     if args.debug:
-        print "copytree:"
-        print "\tsrc:",src
-        print "\tdst:",dst
-        print "\tDEPTH:",str(DEPTH)
-        print "\tCURRENTdepth:",str(CURRENTdepth)
-        print "\tsymlinks:",str(symlinks)
-        print "\tDRYRUN:",str(DRYRUN)
+        print("copytree:")
+        print("\tsrc:", src)
+        print("\tdst:", dst)
+        print("\tDEPTH:", str(DEPTH))
+        print("\tCURRENTdepth:", str(CURRENTdepth))
+        print("\tsymlinks:", str(symlinks))
+        print("\tDRYRUN:", str(DRYRUN))
     if CURRENTdepth >= DEPTH:
         return
     
@@ -256,8 +258,8 @@ def copytree(STARTsite, src, ENDsite, dst, DEPTH, CURRENTdepth, symlinks=False,
     FILES = get_list_of_files(PROTOCOL, STARTsite, SAMPLE, src, args.debug)
 
     if args.debug:
-        print "copytree:"
-        print "\tList of files:",FILES
+        print("copytree:")
+        print("\tList of files:", FILES)
 
     if DIFF :
         FILES = do_diff(FILES, PROTOCOL, ENDsite, SAMPLE, dst)
@@ -285,12 +287,12 @@ def copytree(STARTsite, src, ENDsite, dst, DEPTH, CURRENTdepth, symlinks=False,
                 if srel == "./":
                     srel = ""
                 copy_command, start_location, end_location = init_commands(STARTsite,ENDsite,PROTOCOL,RECURSIVE,VERBOSE,QUIET,STREAMS,TIMEOUT,DRYRUN,ADDITIONAL)
-                print "Copying file "+FILE+" from "+srel
+                print("Copying file " + FILE + " from " + srel)
                 command = copy_command+" "+start_location+srel+FILE+" "+end_location+srel+FILE
-                print command
+                print(command)
                 if not DRYRUN:
                     os.system(command)
-                print
+                print()
                 
         # catch the Error from the recursive copytree so that we can
         # continue with other files
@@ -306,7 +308,7 @@ def local2local(STARTsite, ENDsite, RECURSIVE, DELETE, ADDITIONAL):
     if not DELETE and RECURSIVE:
         command += ' -R'
     command = command + ' ' + ADDITIONAL + ' ' + STARTsite.path + ' ' + ENDsite.path
-    print command
+    print(command)
     os.system(command)
 
 
@@ -334,7 +336,7 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
             command = copy_command+" --from-file "+file_list+" "+end_location
         else:
             command = copy_command+" "+start_location+" "+end_location
-        print command
+        print(command)
         os.system(command)
         return
 
@@ -353,11 +355,11 @@ def main(START, STARTpath, START_USER, END, ENDpath, END_USER, PROTOCOL, SAMPLE,
             TOPdst = "/store/user/"+ENDsite.username+"/"+ENDsite.path
 
         if args.debug:
-            print "main:"
-            print "\tTOPsrc:",TOPsrc
-            print "\tTOPdst:",TOPdst
-            print "\tDEPTH:",str(DEPTH)
-            print "\tDRYRUN:",DRYRUN
+            print("main:")
+            print("\tTOPsrc:", TOPsrc)
+            print("\tTOPdst:", TOPdst)
+            print("\tDEPTH:", str(DEPTH))
+            print("\tDRYRUN:", DRYRUN)
         copytree(STARTsite=STARTsite,src=TOPsrc,ENDsite=ENDsite,dst=TOPdst,DEPTH=DEPTH,CURRENTdepth=0,symlinks=False,
                  SAMPLE=SAMPLE,DIFF=DIFF,ignore=ignore_patterns(IGNORE),PROTOCOL=PROTOCOL,RECURSIVE=RECURSIVE,
                  STREAMS=STREAMS,TIMEOUT=TIMEOUT,VERBOSE=VERBOSE,QUIET=QUIET,DRYRUN=DRYRUN,ADDITIONAL=ADDITIONAL)
@@ -433,9 +435,9 @@ And those are the options available. Deal with it.""")
     args = parser.parse_args()
 
     if(args.debug):
-         print 'Number of arguments:', len(sys.argv), 'arguments.'
-         print 'Argument List:', str(sys.argv)
-         print "Argument ", args
+         print('Number of arguments:', len(sys.argv), 'arguments.')
+         print('Argument List:', str(sys.argv))
+         print("Argument ", args)
     
     main(START=args.STARTserver, STARTpath=args.STARTpath, START_USER=args.start_user,
          END=args.ENDserver, ENDpath=args.ENDpath, END_USER=args.end_user,

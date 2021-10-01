@@ -113,7 +113,8 @@ def dictEntryToFormattedVersion(python_version,version,width):
 # Converts a list of Versions to FormattedVersions
 def dictToFormattedVersions(dict,width):
 	versions = []
-	for python_version, version in sorted(dict.iteritems(), key=lambda (k,v): tuple(map(int,k.split('.')[0:3])+[k.split('.')[3] if len(k.split('.'))>3 else ""])):
+	for python_version, version in sorted(dict.iteritems(), key=lambda (k,v):
+                                              tuple(map(int,k.split('.')[0:3])+[k.split('.')[3] if len(k.split('.'))>3 else ""])):
 		versions += dictEntryToFormattedVersion(python_version,version,width)
 	return versions
 
@@ -136,16 +137,16 @@ def pprinttable(rows):
 		pattern = " | ".join(formats)
 		hpattern = " | ".join(hformats)
 		separator = "-+-".join(['-' * n for n in lens])
-		print hpattern % tuple(headers)
-		print separator
+		print(hpattern % tuple(headers))
+		print(separator)
 		_u = lambda t: t.decode('UTF-8', 'replace') if isinstance(t, str) else t
 		for line in rows:
-			print pattern % tuple(_u(t) for t in line)
+			print(pattern % tuple(_u(t) for t in line))
 	elif len(rows) == 1:
 		row = rows[0]
 		hwidth = len(max(row._fields,key=lambda x: len(x)))
 		for i in range(len(row)):
-			print "%*s = %s" % (hwidth,row._fields[i],row[i])
+			print("%*s = %s" % (hwidth,row._fields[i],row[i]))
 
 def getPythonVersions(args):
 
@@ -188,10 +189,10 @@ Mischief managed!""")
 	args = parser.parse_args()
 
 	if(args.debug):
-		print "argparse debug:\n==============="
-		print 'Number of arguments:', len(sys.argv), 'arguments.'
-		print 'Argument List:', str(sys.argv)
-		print "Argument ", args, "\n"
+		print("argparse debug:\n===============")
+		print('Number of arguments:', len(sys.argv), 'arguments.')
+		print('Argument List:', str(sys.argv))
+		print("Argument ", args, "\n")
 
 	# Set up the container of versions found
 	versions = []
@@ -236,10 +237,10 @@ Mischief managed!""")
 		python_paths += [os.readlink(path) for path in partial_list_lcg_paths]
 
 	if args.debug:
-		print "LCG to python paths:\n===================="
+		print("LCG to python paths:\n====================")
 		for ip,p in enumerate(lcg_paths):
-			print p,"->",python_paths[ip]
-		print
+			print(p,"->",python_paths[ip])
+		print()
 
 	# Collect the python versions and their associated architectures
 	python_dict = {}
@@ -273,18 +274,18 @@ Mischief managed!""")
 			                                       ppath, "",{current_lcg_version:[(current_arch,current_setup_text)]})
 
 	if args.debug:
-		print "Python Dictionary:\n=================="
-		print python_dict
-		print
+		print("Python Dictionary:\n==================")
+		print(python_dict)
+		print()
 
 	# Convert from the raw version namedtuples to the formatted versions used for printing
 	versions  = versionsToFormattedVersions(versions,args.width)
 	versions += dictToFormattedVersions(python_dict,args.width)
 
 	# Print the formatted table
-	print "WARNING::getPythonVersions::Do not setup CMSSW and LCG software in the same environment.\n  Bad things will happen.\n"
-	print "To setup the LCG software do:\n" \
-		  "  source /cvmfs/sft.cern.ch/lcg/views/<LCG Version>/<Architecture>/setup.(c)sh\n"
+	print("WARNING::getPythonVersions::Do not setup CMSSW and LCG software in the same environment.\n  Bad things will happen.\n")
+	print("To setup the LCG software do:\n"
+              "  source /cvmfs/sft.cern.ch/lcg/views/<LCG Version>/<Architecture>/setup.(c)sh\n")
 	pprinttable(versions)
 
 if __name__ == '__main__':

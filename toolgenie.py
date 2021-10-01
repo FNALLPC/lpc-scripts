@@ -1,14 +1,18 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
 from __future__ import print_function
 from collections import namedtuple
 from enum import Enum
-from six.moves import urllib
 import argparse
 import os
 import re
-import readline
 import ssl
 import xml.etree.ElementTree as ET
+import six.moves
+
+# pylint: disable=raw_input-builtin
+# pylint: disable=redefined-builtin
+# pylint: disable=unexpected-special-method-signature
 
 class MapSource(Enum):
     CVMFS = 'CVMFS'
@@ -18,25 +22,31 @@ class MapSource(Enum):
     def __str__(self):
         return self.value
 
-# https://stackoverflow.com/questions/21731043/use-of-input-raw-input-in-python-2-and-3
-# Bind raw_input to input in Python 2.
-try:
-    input = raw_input
-except NameError:
-    pass
-
 class CMSSW(namedtuple('CMSSW', 'type major mid minor extra note')):
+    '''
+    A namedtuple which contains the version information for a single CMSSW release
+    '''
     __slots__ = ()
     def __eq__(self,type,major,mid,minor,extra,note):
-        return self.type == type and self.major == major and self.mid == mid and self.minor == minor and self.extra == extra and self.note == note
+        return (self.type == type and self.major == major and 
+                self.mid == mid and self.minor == minor and 
+                self.extra == extra and self.note == note)
+    def __hash__(self):
+        return hash((self.type, self.major, self.mid, self.minor, self.extra, self.note))
 CMSSW.__new__.__defaults__ = ("",) * len(CMSSW._fields)
 
 class Release(namedtuple('Release', 'architecture label type state prodarch')):
+    '''
+    A namedtuple which contains the architecture information for a given CMSSW release
+    '''
     __slots__ = ()
     def __eq__(self, architecture, label):
         return self.architecture == architecture and self.label == label
-    def getReleaseString(self):
-        return "architecture=%s;label=%s;type=%s;state=%s;prodarch=%s;" % (self.architecture,self.label,self.type,self.state,self.prodarch)
+    def __hash__(self):
+        return hash((self.architecture, self.label))
+    def get_release_string(self):
+        return ("architecture=%s;label=%s;type=%s;state=%s;prodarch=%s;" % 
+                (self.architecture,self.label,self.type,self.state,self.prodarch))
 
 class Toolbox(namedtuple('Toolbox',['Release','Tools','Path'])):
     __slots__ = ()
@@ -45,7 +55,8 @@ class Tool(namedtuple('Tool',['Name','ConfigPaths','Locations','Versions','Archi
     __slots__ = ()
 
 def filter_on_architecture(release_map, architectures):
-    return [release for release in release_map if any(architecture in release.architecture for architecture in architectures)]
+    return [release for release in release_map if \
+            any(architecture in release.architecture for architecture in architectures)]
 
 # We want to skip releases listed in the map file who are named after branches
 # Typically these take the form 'CMSSW_#_#_X'
@@ -72,7 +83,9 @@ def get_labels(release_map):
     for rel in release_map:
         if rel.label not in labels:
             labels.append(rel.label)
-    return sorted(labels,key=lambda label: CMSSW([int(x) if x.isdigit() else 999 if type(x)==str else x for ix,x in enumerate(label.split("_"))]))
+    return sorted(labels,key=lambda label: \
+                  CMSSW([int(x) if x.isdigit() else 999 if type(x)==str \
+                         else x for ix,x in enumerate(label.split("_"))]))
 
 def get_tools(toolbox_list):
     tools = []
@@ -85,7 +98,7 @@ def get_tools(toolbox_list):
 def parse_map_lines(lines):
     relmap = []
     for line in lines:
-        line_list = process_map_line(line)
+        line_list = process_map_line(line.decode('utf-8'))
         if filter_on_branch_name(line_list[1]):
             continue
         relmap.append(Release._make(line_list))
@@ -101,7 +114,7 @@ def parse_release_map(source=MapSource.GITHUB):
         else:
             url = "https://cmssdt.cern.ch/SDT/releases.map"
         ssl._create_default_https_context = ssl._create_unverified_context
-        file = urllib.request.urlopen(url)
+        file = six.moves.urllib.request.urlopen(url)
         contents = file.read()
         contents = contents.split(b'\n')[:-1]
         relmap = parse_map_lines(contents)
@@ -131,12 +144,13 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
     architecture_options = get_architectures(relmap)
     user_response = ""
     if architecture == None:
-        print("Select an architecture. For a single architecture selection, you can enter the item number or the name of the architecture. " \
+        print("Select an architecture. For a single architecture selection, " \
+              "you can enter the item number or the name of the architecture. " \
               "To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'.")
         if not quiet: print_list(architecture_options,"architecture")
         f = "{0:>12s} -- {1:<30s}\n"
         print("Example regex:\n"+f.format("r:.*","All architectures")+f.format("r:slc7.*","All slc7 releases"))
-        user_response = input('--> ')
+        user_response = six.moves.input('--> ')
         print()
     else:
         user_response = architecture
@@ -149,7 +163,8 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
         user_response_altered = user_response[2:]
         selected_architectures = [ao for ao in architecture_options if re.search(user_response_altered,ao)]
     else:
-        selected_architectures = [architecture_options[int(user_response)-1] if user_response.isdigit() else user_response]
+        selected_architectures = [architecture_options[int(user_response)-1] 
+                                  if user_response.isdigit() else user_response]
     if len(selected_architectures) == 0:
         raise Exception("Uh oh! No architectures were found based on your input ({0}).".format(user_response))
     selected_releases = filter_on_architecture(relmap,selected_architectures)
@@ -163,13 +178,15 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
     # Filter on the CMSSW label
     label_options = get_labels(selected_releases)
     if cmssw == None:
-        print("Select a CMSSW release. For a single release, you can enter the item number or the name of the release. " \
+        print("Select a CMSSW release. For a single release, " \
+              "you can enter the item number or the name of the release. " \
               "To select multiple relases, you can use a regex using the syntax \'r:<regex>\'.")
         if not quiet: print_list(label_options,"release")
         f = "{0:>37s} -- {1:<50s}\n"
-        print("Example regex:\n"+f.format("r:.*","All CMSSW releases for the previously selected architectures")+
-              f.format("r:CMSSW_1._[0,6]_.*(?<!pre[0-9])$","All CMSSW releases with X=10-19, Y=0 or 6, Z=anything, and which aren't a pre release"))
-        user_response = input('--> ')
+        print("Example regex:\n" + f.format("r:.*","All CMSSW releases for the previously selected architectures") +
+              f.format("r:CMSSW_1._[0,6]_.*(?<!pre[0-9])$","All CMSSW releases with " \
+                       "X=10-19, Y=0 or 6, Z=anything, and which aren't a pre release"))
+        user_response = six.moves.input('--> ')
         print()
     else:
         user_response = cmssw
@@ -196,7 +213,9 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
     # Get all paths to the tool configuration files
     paths_to_toollists = []
     for r in selected_releases:
-        paths_to_toollists.append('/cvmfs/cms.cern.ch/'+r.architecture+'/cms/'+('cmssw-patch/' if 'patch' in r.label else 'cmssw/')+r.label+'/config/toolbox/'+r.architecture+'/tools/selected/')
+        paths_to_toollists.append('/cvmfs/cms.cern.ch/' + r.architecture + '/cms/' +
+                                  ('cmssw-patch/' if 'patch' in r.label else 'cmssw/') +
+                                  r.label+'/config/toolbox/'+r.architecture+'/tools/selected/')
 
     # Get a dictionary of tools and their associated configuration paths
     selected_releases_tools = []
@@ -215,9 +234,10 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
     # Make a unique list of tools and filter based on the selected tool
     tool_options = get_tools(selected_releases_tools)
     if tool == None:
-        print("Select a tool. You can enter the tool index or the name of the tool. To select multiple tools use a comma separated list.")
+        print("Select a tool. You can enter the tool index or the name of the tool. " \
+              "To select multiple tools use a comma separated list.")
         if not quiet: print_list(tool_options,"tool")
-        user_response = input('--> ')
+        user_response = six.moves.input('--> ')
         print()
     else:
         user_response = tool
@@ -256,12 +276,18 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
                             path = child2.attrib['default']
                             break
             paths.append(path)
-        current_tool = Tool(key,config_paths,paths,versions,[t.Release.architecture for t in selected_toolboxes[key]],[t.Release.label for t in selected_toolboxes[key]])
+        current_tool = Tool(key,config_paths,paths,versions,
+                            [t.Release.architecture for t in selected_toolboxes[key]],
+                            [t.Release.label for t in selected_toolboxes[key]])
         tools.append(current_tool)
 
         # Print the information for a given tool
         headers = ["SCRAM_ARCH","Release","Version","ConfigPath","Location"]
-        min_widths = [len(max(current_tool.Architectures, key=len)),len(max(current_tool.Releases, key=len)),len(max(current_tool.Versions, key=len)),len(max(current_tool.ConfigPaths, key=len)),len(max(current_tool.Locations, key=len))]
+        min_widths = [len(max(current_tool.Architectures, key=len)),
+                      len(max(current_tool.Releases, key=len)),
+                      len(max(current_tool.Versions, key=len)),
+                      len(max(current_tool.ConfigPaths, key=len)),
+                      len(max(current_tool.Locations, key=len))]
         min_widths = [max(len(headers[i]),m) for i,m in enumerate(min_widths)]
         f = "| {0:^{5}s} | {1:^{6}s} | {2:^{7}s} | {3:^{8}s} | {4:^{9}s} |"
         print("The following is a summary of the information for the tool \'{0}\':".format(current_tool.Name))
@@ -269,7 +295,11 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
         print(f.format(*(['-'*width for width in min_widths]+min_widths)))
         f = f.replace("^","<")
         for index, value in enumerate(current_tool.Locations):
-            print(f.format(current_tool.Architectures[index],current_tool.Releases[index],current_tool.Versions[index],current_tool.ConfigPaths[index],current_tool.Locations[index],*min_widths))
+            print(f.format(current_tool.Architectures[index],
+                           current_tool.Releases[index],
+                           current_tool.Versions[index],
+                           current_tool.ConfigPaths[index],
+                           current_tool.Locations[index],*min_widths))
         print('\n')
 
     return tools
@@ -292,20 +322,25 @@ python toolgenie.py slc7_.* 1 1
 """,
                                      epilog="",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("architecture", metavar='arch', nargs='?', default=None, help="The architecture(s) to look at. Can be a regex, " \
-                                                                                    "a single architecture, or if known, the index of " \
-                                                                                    "the architecture from the list of all architectures. " \
-                                                                                    "(default = %(default)s)")
-    parser.add_argument("cmssw", metavar='cmssw', nargs='?', default=None, help="The CMSSW release(s) to look at. Can be a regex, " \
-                                                                              "a single CMSSW release, or if known, the index of " \
-                                                                              "the CMSSW release from the list of all of the releases. " \
-                                                                              "(default = %(default)s)")
-    parser.add_argument("tool", metavar='tool', nargs='?', default=None, help="The tool(s) for which to compile the table of information. " \
-                                                                            "You can enter the tool index or the name of the tool. " \
-                                                                            "To select multiple tools use a comma separated list." \
-                                                                            "(default = %(default)s)")
-    parser.add_argument("-q", "--quiet", default=False, action="store_true", help="Limit the number of printouts (default = %(default)s)")
-    parser.add_argument("-s", "--source", default=MapSource.GITHUB, type=MapSource, choices=list(MapSource), help="Specify the source of the release map (default= %(default)s)")
+    parser.add_argument("architecture", metavar='arch', nargs='?', default=None,
+                        help="The architecture(s) to look at. Can be a regex, " \
+                        "a single architecture, or if known, the index of " \
+                        "the architecture from the list of all architectures. " \
+                        "(default = %(default)s)")
+    parser.add_argument("cmssw", metavar='cmssw', nargs='?', default=None,
+                        help="The CMSSW release(s) to look at. Can be a regex, " \
+                        "a single CMSSW release, or if known, the index of " \
+                        "the CMSSW release from the list of all of the releases. " \
+                        "(default = %(default)s)")
+    parser.add_argument("tool", metavar='tool', nargs='?', default=None,
+                        help="The tool(s) for which to compile the table of information. " \
+                        "You can enter the tool index or the name of the tool. " \
+                        "To select multiple tools use a comma separated list." \
+                        "(default = %(default)s)")
+    parser.add_argument("-q", "--quiet", default=False, action="store_true",
+                        help="Limit the number of printouts (default = %(default)s)")
+    parser.add_argument("-s", "--source", default=MapSource.GITHUB, type=MapSource, choices=list(MapSource),
+                        help="Specify the source of the release map (default= %(default)s)")
 
     args = parser.parse_args()
 

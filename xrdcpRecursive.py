@@ -12,7 +12,7 @@ parser.add_option("-t", "--target", dest="target",
 (options, args) = parser.parse_args()
 
 if options.source is None or options.target is None:
-  print "Error: please define the source and target"
+  print("Error: please define the source and target")
   parser.print_help()
   exit(1)
 
@@ -23,4 +23,4 @@ if options.source is None or options.target is None:
 
 for sourceFile in getFileList(options.source):
   targetFile = sourceFile.replace(options.source, options.target)
-  print getoutput("xrdcp %s root://cmseos.fnal.gov/%s" % (sourceFile, targetFile))
+  print(getoutput("xrdcp %s root://cmseos.fnal.gov/%s" % (sourceFile, targetFile)))
