@@ -19,7 +19,7 @@ jobs:
         pip install pylint
     - name: Analysing the code for python3 compatibility
       run: |
-        pylint -py3k `ls -R|grep .py$|xargs`
+        pylint --py3k `ls -R|grep .py$|xargs`
     - name: Analysing the code for functionality and style
       run: |
         pylint `ls -R|grep .py$|xargs`
@@ -39,4 +39,5 @@ jobs:
       env:
         SHELLCHECK_OPTS: -s bash
       with:
-       format: tty
+        format: tty
+      continue-on-error: true
