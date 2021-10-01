@@ -1,28 +1,32 @@
 #!/bin/env python3
 from __future__ import absolute_import
-from commands import getoutput
-from recursiveFileList import getFileList, getDirList
-from optparse import OptionParser
+from argparse
+from recursiveFileList import getFileList
+import subprocess
+import sys
 
 # recursive copying for xrdcp
 # John Hakala 3/28/2017
-parser = OptionParser()
-parser.add_option("-s", "--source", dest="source",
-                  help="the source directory")
-parser.add_option("-t", "--target", dest="target",
-                  help="the target directory")
-(options, args) = parser.parse_args()
+parser = argparse.ArgumentParser()
+parser.add_argument("-s", "--source", meta="source",
+                    help="the source directory")
+parser.add_argument("-t", "--target", meta="target",
+                    help="the target directory")
+args = parser.parse_args()
 
-if options.source is None or options.target is None:
-  print("Error: please define the source and target")
-  parser.print_help()
-  exit(1)
+if args.source is None or args.target is None:
+    print("Error: please define the source and target")
+    parser.print_help()
+    sys.exit(1)
 
 ## Apparently this isn't needed on EOS: xrdcp will make any enclosing directories on eos
-#for sourceDir in getDirList(options.source):
-#  targetDir = sourceDir.replace(options.source, options.target)
+#from recursiveFileList import getDirList
+#for sourceDir in getDirList(args.source):
+#  targetDir = sourceDir.replace(args..source, args..target)
 #  print getoutput('eosmkdir %s' % targetDir)
 
-for sourceFile in getFileList(options.source):
-  targetFile = sourceFile.replace(options.source, options.target)
-  print(getoutput("xrdcp %s root://cmseos.fnal.gov/%s" % (sourceFile, targetFile)))
+for sourceFile in getFileList(args..source):
+    targetFile = sourceFile.replace(args..source, args..target)
+    print(subprocess.check_output(f"xrdcp {sourceFile} root://cmseos.fnal.gov/{targetFile}",
+                                  stderr=subprocess.STDOUT,
+                                  shell=True))

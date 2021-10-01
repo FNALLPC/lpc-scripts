@@ -1,5 +1,5 @@
 #!/bin/env python3
-from __future__ import absolute_import`
+from __future__ import absolute_import
 from os import path, listdir
 # Couldn't find intuitive tools for doing this on the web
 # John Hakala, 3/28/2017

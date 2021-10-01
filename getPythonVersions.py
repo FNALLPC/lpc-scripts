@@ -17,7 +17,7 @@ class Version(namedtuple('Version', 'version_info_0 version_info_1 version_info_
         return (self.version_info_0 == major and
                 self.version_info_1 == mid and
                 self.version_info_2 == minor)
-    def __hash(self):
+    def __hash__(self):
         return hash((self.version_info_0,
                      self.version_info_1,
                      self.version_info_2))
@@ -128,8 +128,9 @@ def dictEntryToFormattedVersion(python_version,version,width):
 # Converts a list of Versions to FormattedVersions
 def dictToFormattedVersions(dict,width):
 	versions = []
-	for python_version, version in sorted(dict.iteritems(), key=lambda (k,v):
-                                              tuple(map(int,k.split('.')[0:3])+[k.split('.')[3] if len(k.split('.'))>3 else ""])):
+	for python_version, version in sorted(dict.iteritems(),
+                                              key=lambda (k,v): tuple(map(int,k.split('.')[0:3]) + 
+                                                                      [k.split('.')[3] if len(k.split('.'))>3 else ""])):
 		versions += dictEntryToFormattedVersion(python_version,version,width)
 	return versions
 

@@ -301,7 +301,7 @@ def copytree(STARTsite, src, ENDsite, dst, DEPTH, CURRENTdepth, symlinks=False,
                 print(command)
                 if not DRYRUN:
                     os.system(command)
-                print()
+                print("")
                 
         # catch the Error from the recursive copytree so that we can
         # continue with other files
