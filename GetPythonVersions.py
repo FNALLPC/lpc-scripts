@@ -288,10 +288,10 @@ def pprinttable(rows):
         hformats = []
         for i in range(len(rows[0])):
             if isinstance(rows[0][i], int):
-                formats.append("%%%dd" % lens[i])
+                formats.append(f"%{lens[i]:d}d")
             else:
-                formats.append("%%-%ds" % lens[i])
-            hformats.append("%%-%ds" % lens[i])
+                formats.append(f"%-{lens[i]:d}s")
+            hformats.append(f"%-{lens[i]:d}s")
         pattern = " | ".join(formats)
         hpattern = " | ".join(hformats)
         separator = "-+-".join(['-' * n for n in lens])

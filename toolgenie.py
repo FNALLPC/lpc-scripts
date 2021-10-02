@@ -51,8 +51,8 @@ class Release(namedtuple('Release', 'architecture label type state prodarch')):
         """Return a formatted string containing the Release information.
         This string matches that found in the text-based release maps.
         """
-        return ("architecture=%s;label=%s;type=%s;state=%s;prodarch=%s;" %
-                (self.architecture, self.label, self.type, self.state, self.prodarch))
+        return (f"architecture={self.architecture};label={self.label};"
+                f"type={self.type};state={self.state};prodarch={self.prodarch};")
 
 class Toolbox(namedtuple('Toolbox',['Release','Tools','Path'])):
     """A namedtuple which contains the information needed to specify the tools for a single release."""
@@ -137,7 +137,7 @@ def get_selected_architectures(relmap, architecture = None, quiet = False):
         selected_architectures = [architecture_options[int(user_response)-1]
                                   if user_response.isdigit() else user_response]
     if len(selected_architectures) == 0:
-        raise Exception("Uh oh! No architectures were found based on your input ({0}).".format(user_response))
+        raise Exception(f"Uh oh! No architectures were found based on your input ({user_response}).")
 
     return (selected_architectures, user_response)
 
@@ -171,7 +171,7 @@ def get_selected_releases(selected_releases, cmssw = None, quiet = False):
     else:
         selected_labels = [label_options[int(user_response)-1] if user_response.isdigit() else user_response]
     if len(selected_labels) == 0:
-        raise Exception("Uh oh! No releases were found based on your input ({0}).".format(user_response))
+        raise Exception(f"Uh oh! No releases were found based on your input ({user_response}).")
     selected_releases = filter_on_label(selected_releases, selected_labels)
 
     return selected_releases
@@ -197,7 +197,7 @@ def get_selected_toolboxes(selected_releases_tools, tool = None, quiet = False):
         if not user_response.isdigit() and user_response not in tool_options:
             raise Exception("The response was not in the list of acceptable tools.\n")
         selected_tool = tool_options[int(user_response)-1] if user_response.isdigit() else user_response
-        if not selected_tool in selected_toolboxes.keys():
+        if not selected_tool in selected_toolboxes:
             selected_toolboxes[selected_tool] = filter_on_tool(selected_releases_tools, selected_tool)
         else:
             selected_toolboxes[selected_tool].extend(filter_on_tool(selected_releases_tools, selected_tool))
@@ -212,7 +212,7 @@ def get_tool_information(tool_name, toolbox):
     for config_path in config_paths:
         # Skip paths that don't exist. These should already be filtered out by now, but just in case ...
         if not os.path.exists(config_path):
-            print("Warning! The configuration path {0} does not exist. It will be skipped.".format(config_path))
+            print(f"Warning! The configuration path {config_path} does not exist. It will be skipped.")
             continue
         tree = ET.parse(config_path)
         root = tree.getroot()
@@ -298,8 +298,9 @@ def parse_release_map(source=MapSource.GITHUB):
 
 def print_list(the_list, entry_type='item'):
     """Print a formated list of items."""
-    print("The " + entry_type + " choices are listed below.")
+    print(f"The {entry_type} choices are listed below.")
     for i, item in enumerate(the_list, 1):
+        # pylint: disable=onsider-using-f-string
         print('{0:{width}}'.format(i, width=len(str(len(the_list)))), '. ' + item, sep='',end='\n')
 
 def process_map_line(line):
@@ -315,7 +316,7 @@ def print_selection(topline, selected_list = None):
 
     print(topline)
     for selected in selected_list:
-        print('\t{0}'.format(selected))
+        print(f"\t{selected}")
     print("")
 
 def print_tool_information(tool):
@@ -328,7 +329,7 @@ def print_tool_information(tool):
                   len(max(tool.Locations, key=len))]
     min_widths = [max(len(headers[i]), m) for i, m in enumerate(min_widths)]
     pattern = "| {0:^{5}s} | {1:^{6}s} | {2:^{7}s} | {3:^{8}s} | {4:^{9}s} |"
-    print("The following is a summary of the information for the tool \'{0}\':".format(tool.Name))
+    print(f"The following is a summary of the information for the tool \'{tool.Name}\':")
     print(pattern.format(*(headers + min_widths)))
     print(pattern.format(*(['-'*width for width in min_widths] + min_widths)))
     pattern = pattern.replace("^","<")

@@ -57,7 +57,7 @@ class Responsibility(namedtuple('Responsibility', 'username role email')):
     """A namedtuple containing the information for the person responsible for a given site."""
     __slots__ = ()
     def __str__(self):
-        return '%s %s %s' % (self.username, self.role, self.email)
+        return f"{self.username} {self.role} {self.email}"
 
 class Site:
     """Class for storing OSG site information from SiteDB"""
@@ -100,7 +100,7 @@ class Site:
                 description = description.capitalize()
             for key, value in self.__cap_rule.items():
                 description = description.replace(key, value)
-            if not fast and member in self.__fast_fields.keys():
+            if not fast and member in self.__fast_fields:
                 if self.__fast_fields[member] is not None:
                     ret += "\t" + description + ": " + str(self.__fast_fields[member]._fields) + "\n"
                     for item in literal_eval(f"self.{member}"):
@@ -113,7 +113,7 @@ class Site:
 
     def create_xrootd_endpoint(self):
         """Properly format and set the XRootD endpoint for the Site."""
-        self.xrootd_endpoint = "root://%s/" % (self.fqdn)
+        self.xrootd_endpoint = f"root://{self.fqdn}/"
 
 def run_checks(quiet):
     """Does some basic sanity checks before proceeding with the rest of the module.
