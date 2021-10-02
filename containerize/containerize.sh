@@ -101,13 +101,11 @@ done
 dependency_check() {
     subuid=$(cat /etc/subuid | grep "^`id -u`:")
     subgid=$(cat /etc/subgid | grep "^`id -u`:")
-    if ! command -v buildah &> /dev/null
-    then
+    if ! command -v buildah &> /dev/null; then
         EXIT=$?
         echo "Buildah could not be found!"
         exit ${EXIT}
-    elif ! command -v jq &> /dev/null
-    then
+    elif ! command -v jq &> /dev/null; then
         EXIT=$?
         echo "jq could not be found!"
         exit ${EXIT}
@@ -118,13 +116,13 @@ dependency_check() {
     elif [[ -z "${subuid}" ]] || [[ -z "${subgid}" ]]; then
         echo "Unable to find a subuid or subgid for id=`id -u` in /etc/subuid and /etc/subgid."
         echo "Contact user support or your sysadmin for further assistance."
-    elif [[ ! -d /cvmfs/cms.cern.ch ]] || [ ! cvmfs_config probe cms.cern.ch &> /dev/null ]; then
+    elif [[ ! -d /cvmfs/cms.cern.ch ]] || ! cvmfs_config probe cms.cern.ch &> /dev/null; then
         EXIT=$?
         echo "/cvmfs/cms.cern.ch must be mounted on the host to proceed."
         exit ${EXIT}
     fi
 
-    if [ ! command -v podman &> /dev/null ]; then
+    if ! command -v podman &> /dev/null ; then
         echo "Podman could not be found. While this is not strictly necessary, you will not be able to create a container from the resulting image."
     fi
 }
