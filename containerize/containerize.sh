@@ -101,11 +101,13 @@ done
 dependency_check() {
     subuid=$(cat /etc/subuid | grep "^`id -u`:")
     subgid=$(cat /etc/subgid | grep "^`id -u`:")
-    if [ ! command -v buildah &> /dev/null ]; then
+    if ! command -v buildah &> /dev/null
+    then
         EXIT=$?
         echo "Buildah could not be found!"
         exit ${EXIT}
-    elif [ ! command -v jq &> /dev/null ];then
+    elif ! command -v jq &> /dev/null
+    then
         EXIT=$?
         echo "jq could not be found!"
         exit ${EXIT}

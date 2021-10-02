@@ -145,7 +145,7 @@ while getopts "bfg:hrs:u" option; do
 	esac
 done
 
-shift $(($OPTIND - 1))
+shift $((OPTIND - 1))
 DIR=$1
 
 #"recursive" option
