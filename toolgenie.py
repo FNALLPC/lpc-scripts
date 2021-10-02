@@ -300,7 +300,7 @@ def print_list(the_list, entry_type='item'):
     """Print a formated list of items."""
     print(f"The {entry_type} choices are listed below.")
     for i, item in enumerate(the_list, 1):
-        # pylint: disable=onsider-using-f-string
+        # pylint: disable=consider-using-f-string
         print('{0:{width}}'.format(i, width=len(str(len(the_list)))), '. ' + item, sep='',end='\n')
 
 def process_map_line(line):
