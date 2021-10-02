@@ -14,7 +14,8 @@ clean(){
 }
 
 splitpath(){
-    local ret="-C $(dirname "${1}") $(basename "${1}")"
+    local ret
+    ret="-C $(dirname "${1}") $(basename "${1}")"
     echo "${ret}"
 }
 
@@ -101,8 +102,8 @@ while getopts "b:cCd:f:i:j:m:r:t:T:u:vh" opt; do
 done
 
 dependency_check() {
-    subuid=$(cat /etc/subuid | grep "^$(id -u):")
-    subgid=$(cat /etc/subgid | grep "^$(id -u):")
+    subuid=$(< /etc/subuid grep "^$(id -u):")
+    subgid=$(< /etc/subgid grep "^$(id -u):")
     if ! command -v buildah &> /dev/null; then
         EXIT=$?
         echo "Buildah could not be found!"
@@ -144,7 +145,7 @@ for dir in $(jq -r '.Directories[] | .Path + " " + (.Cache|tostring)' "${JSON}")
     IFS=' '
     dirarray=("$dir")
     path=${dirarray[0]}
-    path=$(eval echo ${path})
+    path=$(eval echo "${path}")
     cache=${dirarray[1]}
     cache_file=${path}/CACHEDIR.TAG
     if [[ "${cache}" == "1" ]] && [[ ! -f ${cache_file} ]]; then
@@ -214,8 +215,8 @@ fi
 # build the image
 echo -e "Building the image ..."
 buildah --root "${ROOT}" --runroot "${ROOT}" bud -f "${FILE}" -t "${TAG}" -v /cvmfs/cms.cern.ch:/cvmfs/cms.cern.ch \
-        --build-arg BUILDIMAGE="${BUILDIMAGE}" --build-arg BASEIMAGE="${BASE}" --build-arg BUILD_DATE=$(date -u +%Y-%m-%d) --build-arg ANALYSIS_NAME="${NAME}" \
-        --build-arg CMSSW_VERSION="${CMSSW_VERSION}" --build-arg TAR=$(realpath --relative-to="${PWD}" "${TAR}") --build-arg NONPRIVILEGED_USER="${USER}"
+        --build-arg BUILDIMAGE="${BUILDIMAGE}" --build-arg BASEIMAGE="${BASE}" --build-arg BUILD_DATE="$(date -u +%Y-%m-%d)" --build-arg ANALYSIS_NAME="${NAME}" \
+        --build-arg CMSSW_VERSION="${CMSSW_VERSION}" --build-arg TAR="$(realpath --relative-to="${PWD}" "${TAR}")" --build-arg NONPRIVILEGED_USER="${USER}"
 
 # Cleanup the temporary files
 if [[ "${CLEAN}" == "true" ]]; then
