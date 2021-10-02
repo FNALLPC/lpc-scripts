@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+
+"""
+This module collects the available for a given computing site on the CMS side of the
+Worldwide LHC Computing Grid (WLCG). The information for these sites is contained in
+the CRIC and RUCIO databases. The idea for this module is that it will be faster for
+users to get the information they need here than it would be to try to collect the
+information by going to the online portals for CRIC or RUCIO. The information collected
+can also be returned in a format easily used by other modules.
+"""
+
 from __future__ import absolute_import
 import argparse
 from ast import literal_eval
@@ -13,6 +23,7 @@ import traceback
 import pycurl
 
 class SiteDBDictEntry(namedtuple('SiteDBDictEntry', 'local_redirector xrootd_endpoint local_path_to_store')):
+    """Namedtuple used to store site information not contained in a database."""
     __slots__ = ()
     def __str__(self):
         return f"{self.local_redirector} {self.xrootd_endpoint} {self.local_path_to_store}"
@@ -28,6 +39,7 @@ siteDBDict = {
 }
 
 def is_number(num):
+    """Returns True if the argment can be converted to a float, otherwise return False."""
     try:
         float(num)
         return True
@@ -35,12 +47,14 @@ def is_number(num):
         return False
 
 class Pledge(namedtuple('Pledge', 'pledge_date quarter cpu disk_store tape_store local_store')):
+    """A namedtuple containing the pledge information for a given site."""
     __slots__ = ()
     def __str__(self):
         return f"{self.pledge_date:10.1f} {self.quarter:4i} {self.cpu:f} {self.disk_store:f} \
                  {self.tape_store:f} {self.local_store}"
 
 class Responsibility(namedtuple('Responsibility', 'username role email')):
+    """A namedtuple containing the information for the person responsible for a given site."""
     __slots__ = ()
     def __str__(self):
         return '%s %s %s' % (self.username, self.role, self.email)
@@ -98,14 +112,21 @@ class Site:
         return ret
 
     def create_xrootd_endpoint(self):
+        """Properly format and set the XRootD endpoint for the Site."""
         self.xrootd_endpoint = "root://%s/" % (self.fqdn)
 
 def run_checks(quiet):
+    """Does some basic sanity checks before proceeding with the rest of the module.
+    This tries to head off problems that might occur later on.
+    The checks include:
+    1. Making sure the python executable being used meets the minimum requirements.
+    2. Making sure the user has a valid grid proxy.
+    """
     if not quiet:
         print("Running sanity checks before proceeding ...")
 
     #check the python version
-    min_python_version = (2,7,11)
+    min_python_version = (3,0,0)
     if sys.version_info < min_python_version:
         raise RuntimeError(f"Must be using Python "
                            f"{min_python_version[0]}.{min_python_version[1]}.{min_python_version[2]} "
@@ -135,6 +156,7 @@ def run_checks(quiet):
     return os.environ['X509_USER_PROXY']
 
 def get_curl_info(url):
+    """Setup and run a pycurl task for a given url."""
     buffer = StringIO()
     curl_object = pycurl.Curl()
     curl_object.setopt(curl_object.URL, url)
@@ -151,6 +173,7 @@ def get_curl_info(url):
     return buffer.getvalue()
 
 def find_facility_from_alias(site, debug = False):
+    """Get the facility information for a given Site."""
     body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-names')
     if debug:
         print("GetSiteInfo::find_facility_from_alias()")
@@ -165,6 +188,7 @@ def find_facility_from_alias(site, debug = False):
             site.types.append(ibody.split('"')[1])
 
 def find_se_info(site, debug = False):
+    """Get the storage element information for a given Site."""
     body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-resources')
     if debug:
         print("GetSiteInfo::find_se_info()")
@@ -180,6 +204,7 @@ def find_se_info(site, debug = False):
             site.is_primary = bool(ibody.split('"')[7])
 
 def get_site_associations(site, debug = False):
+    """Get the other sites associated to the given Site."""
     body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-associations')
     if debug:
         print("GetSiteInfo::get_site_associations()")
@@ -198,6 +223,7 @@ def get_site_associations(site, debug = False):
         site.parent_site = "None"
 
 def get_pledges(site, debug = False):
+    """Get the pledges make by a given Site."""
     body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/resource-pledges')
     if debug:
         print("GetSiteInfo::get_pledges()")
@@ -218,6 +244,7 @@ def get_pledges(site, debug = False):
                                        local_store))
 
 def get_site_responsibilities(site, debug = False):
+    """Get the responsibilities for a given Site."""
     body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-responsibilities')
     if debug:
         print("GetSiteInfo::get_site_responsibilities()")
@@ -233,6 +260,7 @@ def get_site_responsibilities(site, debug = False):
                                                         ""))
 
 def get_lfn_and_pfn_from_phedex(site, debug = False):
+    """Get the LFN and PFN information from PhEDEx for a given Site."""
     jstr = get_curl_info('https://cmsweb.cern.ch/phedex/datasvc/json/prod/lfn2pfn?node=' +
                        site.alias +
                        '&lfn=/store/user&protocol=srmv2')
@@ -242,16 +270,16 @@ def get_lfn_and_pfn_from_phedex(site, debug = False):
         result = json.loads(jstr)
         site.lfn = result['phedex']['mapping'][0]['lfn']
         site.pfn = result['phedex']['mapping'][0]['pfn']
-    except Exception:
+    except Exception as exception:
         print("Unable to get the LFN and PFN for", site.alias, "from PhEDEx")
         print(jstr)
         if debug:
-            raise RuntimeError(traceback.format_exc())
+            raise RuntimeError(traceback.format_exc()) from exception
         site.lfn = "None"
         site.pfn = "None"
 
-
 def add_information_not_in_site_db(site):
+    """Add information to the Site which is in the local dictionary and not contained online."""
     if site.alias in siteDBDict:
         site.local_redirector = siteDBDict[site.alias].local_redirector \
                                 if siteDBDict[site.alias].local_redirector != '' else "None"
@@ -265,6 +293,7 @@ def add_information_not_in_site_db(site):
 
 
 def get_site_info(site_alias="", site=None, cric=False, debug=False, fast=False, print_json=False, quiet=False):
+    """Main module function which coordinated the various information finding tasks."""
     if site is None:
         site = Site(site_alias)
     run_checks(quiet)
@@ -303,7 +332,6 @@ def get_site_info(site_alias="", site=None, cric=False, debug=False, fast=False,
     return site
 
 if __name__ == '__main__':
-    #program name available through the %(prog)s command
     parser = argparse.ArgumentParser(description="""Access SiteDB and PhEDEx to retrieve a sites information.\n
                                      Information on how this information is obtained can be found at 
                                      https://cms-http-group.web.cern.ch/cms-http-group/apidoc/sitedb/current/introduction.html\n
