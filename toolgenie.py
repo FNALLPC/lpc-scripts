@@ -20,17 +20,17 @@ class MapSource(Enum):
     def __str__(self):
         return self.value
 
-class CMSSW(namedtuple('CMSSW', 'type major mid minor extra note')):
+class CMSSW(namedtuple('CMSSW', 'prefix major mid minor extra note')):
     '''
     A namedtuple which contains the version information for a single CMSSW release
     '''
     __slots__ = ()
-    def __eq__(self,type,major,mid,minor,extra,note):
-        return (self.type == type and self.major == major and
+    def __eq__(self,prefix,major,mid,minor,extra,note):
+        return (self.prefix == prefix and self.major == major and
                 self.mid == mid and self.minor == minor and
                 self.extra == extra and self.note == note)
     def __hash__(self):
-        return hash((self.type, self.major, self.mid, self.minor, self.extra, self.note))
+        return hash((self.prefix, self.major, self.mid, self.minor, self.extra, self.note))
 CMSSW.__new__.__defaults__ = ("",) * len(CMSSW._fields)
 
 class Release(namedtuple('Release', 'architecture label type state prodarch')):
@@ -44,7 +44,7 @@ class Release(namedtuple('Release', 'architecture label type state prodarch')):
         return hash((self.architecture, self.label))
     def get_release_string(self):
         return ("architecture=%s;label=%s;type=%s;state=%s;prodarch=%s;" %
-                (self.architecture,self.label,self.type,self.state,self.prodarch))
+                (self.architecture, self.label, self.type, self.state, self.prodarch))
 
 class Toolbox(namedtuple('Toolbox',['Release','Tools','Path'])):
     __slots__ = ()
@@ -81,9 +81,9 @@ def get_labels(release_map):
     for rel in release_map:
         if rel.label not in labels:
             labels.append(rel.label)
-    return sorted(labels,key=lambda label: \
-                  CMSSW([int(x) if x.isdigit() else 999 if type(x)==str \
-                         else x for ix,x in enumerate(label.split("_"))]))
+    return sorted(labels, key=lambda label: \
+                  CMSSW([int(x) if x.isdigit() else 999 if isinstance(x, str) \
+                         else x for ix, x in enumerate(label.split("_"))]))
 
 def get_tools(toolbox_list):
     tools = []
@@ -111,23 +111,25 @@ def parse_release_map(source=MapSource.GITHUB):
             url = "https://raw.githubusercontent.com/cms-sw/cms-bot/master/releases.map"
         else:
             url = "https://cmssdt.cern.ch/SDT/releases.map"
+        # pylint: disable=protected-access
         ssl._create_default_https_context = ssl._create_unverified_context
-        file = six.moves.urllib.request.urlopen(url)
-        contents = file.read()
+        contents = ""
+        with six.moves.urllib.request.urlopen(url) as file:
+            contents = file.read()
         contents = contents.split(b'\n')[:-1]
         relmap = parse_map_lines(contents)
     elif source == MapSource.CVMFS:
-        with open("/cvmfs/cms.cern.ch/releases.map",'r') as release_map:
+        with open("/cvmfs/cms.cern.ch/releases.map", mode='r', encoding='utf-8') as release_map:
             relmap = parse_map_lines(release_map)
     else:
         raise Exception("Unknown source for the architecture/release map.\n")
 
     return relmap
 
-def print_list(l, type='item'):
-    print("The " + type + " choices are listed below.")
-    for i, item in enumerate(l,1):
-        print('{0:{width}}'.format(i,width=len(str(len(l)))), '. ' + item, sep='',end='\n')
+def print_list(the_list, entry_type='item'):
+    print("The " + entry_type + " choices are listed below.")
+    for i, item in enumerate(the_list, 1):
+        print('{0:{width}}'.format(i,width=len(str(len(the_list)))), '. ' + item, sep='',end='\n')
 
 def process_map_line(line):
     line_split = line.strip().split(';')[:-1]
@@ -145,16 +147,17 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
         print("Select an architecture. For a single architecture selection, " \
               "you can enter the item number or the name of the architecture. " \
               "To select multiple architectures, you can use a regex using the syntax \'r:<regex>\'.")
-        if not quiet: print_list(architecture_options,"architecture")
-        f = "{0:>12s} -- {1:<30s}\n"
-        print("Example regex:\n"+f.format("r:.*","All architectures")+f.format("r:slc7.*","All slc7 releases"))
+        if not quiet:
+            print_list(architecture_options,"architecture")
+        pattern = "{0:>12s} -- {1:<30s}\n"
+        print("Example regex:\n" + pattern.format("r:.*","All architectures") + pattern.format("r:slc7.*","All slc7 releases"))
         user_response = six.moves.input('--> ')
         print()
     else:
         user_response = architecture
     if user_response.isdigit() and (int(user_response) > len(architecture_options) or int(user_response) < 0):
         raise Exception("The response was out of bounds. You must enter a listed value.\n")
-    if not user_response.isdigit() and not 'r:' in user_response and user_response not in architecture_options:
+    if not user_response.isdigit() and 'r:' not in user_response and user_response not in architecture_options:
         raise Exception("The response was not in the list of acceptable scram architectures.\n")
     selected_architectures = []
     if 'r:' in user_response:
@@ -169,8 +172,8 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
 
     # Print the selected architectures so that the user know what they did
     print("Based on your input ({0}), the selected SCRAM architectures are:".format(user_response))
-    for a in selected_architectures:
-        print('\t{0}'.format(a))
+    for selected_architecture in selected_architectures:
+        print('\t{0}'.format(selected_architecture))
     print("")
 
     # Filter on the CMSSW label
@@ -179,11 +182,13 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
         print("Select a CMSSW release. For a single release, " \
               "you can enter the item number or the name of the release. " \
               "To select multiple relases, you can use a regex using the syntax \'r:<regex>\'.")
-        if not quiet: print_list(label_options,"release")
-        f = "{0:>37s} -- {1:<50s}\n"
-        print("Example regex:\n" + f.format("r:.*","All CMSSW releases for the previously selected architectures") +
-              f.format("r:CMSSW_1._[0,6]_.*(?<!pre[0-9])$","All CMSSW releases with " \
-                       "X=10-19, Y=0 or 6, Z=anything, and which aren't a pre release"))
+        if not quiet:
+            print_list(label_options,"release")
+        pattern = "{0:>37s} -- {1:<50s}\n"
+        print("Example regex:\n" +
+              pattern.format("r:.*","All CMSSW releases for the previously selected architectures") +
+              pattern.format("r:CMSSW_1._[0,6]_.*(?<!pre[0-9])$","All CMSSW releases with " \
+                             "X=10-19, Y=0 or 6, Z=anything, and which aren't a pre release"))
         user_response = six.moves.input('--> ')
         print()
     else:
@@ -204,16 +209,17 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
 
     # Print the selected release(s) so that the user knows what they did
     print("You selected the release(s):")
-    for r in selected_releases:
-        print('\t{0}'.format(r))
+    for selected_release in selected_releases:
+        print('\t{0}'.format(selected_release))
     print()
 
     # Get all paths to the tool configuration files
     paths_to_toollists = []
-    for r in selected_releases:
-        paths_to_toollists.append('/cvmfs/cms.cern.ch/' + r.architecture + '/cms/' +
-                                  ('cmssw-patch/' if 'patch' in r.label else 'cmssw/') +
-                                  r.label+'/config/toolbox/'+r.architecture+'/tools/selected/')
+    for selected_release in selected_releases:
+        paths_to_toollists.append('/cvmfs/cms.cern.ch/' + selected_release.architecture + '/cms/' +
+                                  ('cmssw-patch/' if 'patch' in selected_release.label else 'cmssw/') +
+                                  selected_release.label + '/config/toolbox/' + selected_release.architecture +
+                                  '/tools/selected/')
 
     # Get a dictionary of tools and their associated configuration paths
     selected_releases_tools = []
@@ -225,28 +231,30 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
         tools = os.listdir(path)
         tools = [t.replace('.xml','') for t in tools]
         selected_releases_tools.append(Toolbox(selected_releases[ipath],tools,path))
-    if len(skipped_paths) > 0: print("\nWARNING! The following configuration paths do not exist and were skipped.")
-    for p in skipped_paths:
-        print("\t"+p)
+    if len(skipped_paths) > 0:
+        print("\nWARNING! The following configuration paths do not exist and were skipped.")
+    for skipped_path in skipped_paths:
+        print("\t" + skipped_path)
 
     # Make a unique list of tools and filter based on the selected tool
     tool_options = get_tools(selected_releases_tools)
     if tool is None:
         print("Select a tool. You can enter the tool index or the name of the tool. " \
               "To select multiple tools use a comma separated list.")
-        if not quiet: print_list(tool_options,"tool")
-        user_response = six.moves.input('--> ')
+        if not quiet:
+            print_list(tool_options,"tool")
+        user_responses = six.moves.input('--> ')
         print()
     else:
-        user_response = tool
-    user_response = user_response.replace(' ','').split(',')
+        user_responses = tool
+    user_responses = user_responses.replace(' ','').split(',')
     selected_toolboxes = {}
-    for ur in user_response:
-        if ur.isdigit() and (int(ur) > len(tool_options) or int(ur) < 0):
+    for user_response in user_responses:
+        if user_response.isdigit() and (int(user_response) > len(tool_options) or int(user_response) < 0):
             raise Exception("The response was out of bounds. You must enter a listed value.\n")
-        if not ur.isdigit() and ur not in tool_options:
+        if not user_response.isdigit() and user_response not in tool_options:
             raise Exception("The response was not in the list of acceptable CMSSW releases.\n")
-        selected_tool = tool_options[int(ur)-1] if ur.isdigit() else ur
+        selected_tool = tool_options[int(user_response)-1] if user_response.isdigit() else user_response
         if not selected_tool in selected_toolboxes.keys():
             selected_toolboxes[selected_tool] = filter_on_tool(selected_releases_tools,selected_tool)
         else:
@@ -255,15 +263,15 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
     # Gather the tool information from the various releases
     tools = []
     for key, value in selected_toolboxes.items():
-        config_paths = [t.Path+key+'.xml' for t in selected_toolboxes[key]]
+        config_paths = [t.Path + key + '.xml' for t in value]
         versions = []
         paths = []
-        for cp in config_paths:
+        for config_path in config_paths:
             # Skip paths that don't exist. These should already be filtered out by now, but just in case ...
-            if not os.path.exists(cp):
-                print("Warning! The configuration path {0} does not exist. It will be skipped.".format(cp))
+            if not os.path.exists(config_path):
+                print("Warning! The configuration path {0} does not exist. It will be skipped.".format(config_path))
                 continue
-            tree = ET.parse(cp)
+            tree = ET.parse(config_path)
             root = tree.getroot()
             versions.append(root.attrib['version'])
             path = ""
@@ -275,8 +283,8 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
                             break
             paths.append(path)
         current_tool = Tool(key,config_paths,paths,versions,
-                            [t.Release.architecture for t in selected_toolboxes[key]],
-                            [t.Release.label for t in selected_toolboxes[key]])
+                            [t.Release.architecture for t in value],
+                            [t.Release.label for t in value])
         tools.append(current_tool)
 
         # Print the information for a given tool
@@ -287,17 +295,17 @@ def toolgenie(architecture=None, cmssw=None, tool=None, quiet=False, source=MapS
                       len(max(current_tool.ConfigPaths, key=len)),
                       len(max(current_tool.Locations, key=len))]
         min_widths = [max(len(headers[i]),m) for i,m in enumerate(min_widths)]
-        f = "| {0:^{5}s} | {1:^{6}s} | {2:^{7}s} | {3:^{8}s} | {4:^{9}s} |"
+        pattern = "| {0:^{5}s} | {1:^{6}s} | {2:^{7}s} | {3:^{8}s} | {4:^{9}s} |"
         print("The following is a summary of the information for the tool \'{0}\':".format(current_tool.Name))
-        print(f.format(*(headers+min_widths)))
-        print(f.format(*(['-'*width for width in min_widths]+min_widths)))
-        f = f.replace("^","<")
-        for index, value in enumerate(current_tool.Locations):
-            print(f.format(current_tool.Architectures[index],
-                           current_tool.Releases[index],
-                           current_tool.Versions[index],
-                           current_tool.ConfigPaths[index],
-                           current_tool.Locations[index],*min_widths))
+        print(pattern.format(*(headers + min_widths)))
+        print(pattern.format(*(['-'*width for width in min_widths] + min_widths)))
+        pattern = pattern.replace("^","<")
+        for index, _ in enumerate(current_tool.Locations):
+            print(pattern.format(current_tool.Architectures[index],
+                                 current_tool.Releases[index],
+                                 current_tool.Versions[index],
+                                 current_tool.ConfigPaths[index],
+                                 current_tool.Locations[index],*min_widths))
         print('\n')
 
     return tools

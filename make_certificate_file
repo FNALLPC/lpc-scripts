@@ -42,7 +42,6 @@ if globus_exists; then
 	exit 1
 fi
 
-# shellcheck disable=SC2016
 usercert='${HOME}/.globus/usercert.pem'
 userkey='${HOME}/.globus/userkey.pem'
 read -e -p "Enter the full path of the usercert file: " -i "${HOME}/.globus/usercert.pem" input

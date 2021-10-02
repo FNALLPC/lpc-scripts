@@ -61,6 +61,6 @@ jobs:
       # uses: ludeeus/action-shellcheck@1.1.0
       uses: ludeeus/action-shellcheck@master
       env:
-        SHELLCHECK_OPTS: -s bash -e SC2162
+        SHELLCHECK_OPTS: -s bash -e SC2162 -e SC2016 -e SC2126
       with:
         format: tty

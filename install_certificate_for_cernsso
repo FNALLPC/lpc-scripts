@@ -40,7 +40,6 @@ if proxy_exists "${overwrite:-$name}" "${output_dir:-$name}"; then
     exit
 fi
 
-# shellcheck disable=SC2016
 cert_file='${HOME}/.globus/mycert.p12'
 read -e -p "Enter the full path of the p12 certificate file (default: ${HOME}/.globus/mycert.p12): " -i "${HOME}/.globus/mycert.p12" input
 cert_file="${input:-$name}"

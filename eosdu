@@ -11,7 +11,6 @@ case $(uname) in
 esac
 
 # awk command to modify the EOS (citrine) find command and return the output to something like the previous versions
-# shellcheck disable=SC2016
 FIXFIND='{lfn=$1; while(substr(lfn,1,6)!="/store"&&length(lfn)>=6) { lfn = substr(lfn,2) }; print lfn}'
 
 # This will sum the size of all content inside the LFN and return the number in B

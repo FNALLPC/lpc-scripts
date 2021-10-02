@@ -1,9 +1,9 @@
 #!/bin/env python3
 from __future__ import absolute_import
 import argparse
-from recursiveFileList import getFileList
 import subprocess
 import sys
+from RecursiveFileList import get_file_list
 
 # recursive copying for xrdcp
 # John Hakala 3/28/2017
@@ -25,8 +25,8 @@ if args.source is None or args.target is None:
 #  targetDir = sourceDir.replace(args..source, args..target)
 #  print getoutput('eosmkdir %s' % targetDir)
 
-for sourceFile in getFileList(args..source):
-    targetFile = sourceFile.replace(args..source, args..target)
+for sourceFile in get_file_list(args.source):
+    targetFile = sourceFile.replace(args.source, args.target)
     print(subprocess.check_output(f"xrdcp {sourceFile} root://cmseos.fnal.gov/{targetFile}",
                                   stderr=subprocess.STDOUT,
                                   shell=True))

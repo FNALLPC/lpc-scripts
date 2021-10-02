@@ -8,7 +8,7 @@ def map_dir(prefix, directory):
     this_dir = path.join(prefix, directory)
     child_map = {}
     contents = []
-    for child in listdir(thisDir):
+    for child in listdir(this_dir):
         if path.isfile(path.join(this_dir, child)):
             contents.append(child)
         elif path.isdir(path.join(this_dir, child)):
@@ -22,13 +22,13 @@ def make_file_list(prefix, dir_map):
         for child in dir_map[key]:
             if isinstance(child, str):
                 file_list.append(path.join(prefix, path.join(key, child)))
-          elif isinstance(child, dict):
-              for subdir_file in make_file_list(path.join(prefix, key), child):
-                  file_list.append(subdir_file)
+            elif isinstance(child, dict):
+                for subdir_file in make_file_list(path.join(prefix, key), child):
+                    file_list.append(subdir_file)
     return file_list
 
 def make_dir_list(prefix, dir_map):
-    dirList = []
+    dir_list = []
     for key in dir_map.keys():
         for child in dir_map[key]:
             if isinstance(child, dict):
@@ -40,7 +40,7 @@ def make_dir_list(prefix, dir_map):
 def get_file_list(dir_name):
     return make_file_list(dir_name, map_dir(dir_name, dir_name))
 
-def get_dir_List(dir_name):
+def get_dir_list(dir_name):
     return make_dir_list(dir_name, map_dir(dir_name, dir_name))
 
 if __name__ == "__main__":

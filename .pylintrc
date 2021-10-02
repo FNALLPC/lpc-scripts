@@ -33,8 +33,13 @@ load-plugins=
 # can either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once).
-#disable=
+disable=unexpected-special-method-signature,
+		no-else-return,
+		unsubscriptable-object,
+		broad-except
 
+# From https://stackoverflow.com/questions/53465607/pylint-reports-error-for-pycurl-curl-which-is-not-correct
+extension-pkg-allow-list=pycurl
 
 [REPORTS]
 
@@ -73,7 +78,7 @@ ignore-mixin-members=yes
 
 # List of classes names for which member attributes should not be checked
 # (useful for classes with attributes dynamically set).
-ignored-classes=SQLObject
+ignored-classes=SQLObject,Curl
 
 # When zope mode is activated, add a predefined set of Zope acquired attributes
 # to generated-members.
@@ -135,7 +140,7 @@ no-docstring-rgx=__.*__
 [FORMAT]
 
 # Maximum number of characters on a single line.
-max-line-length=120
+max-line-length=130
 
 # Maximum number of lines in a module
 max-module-lines=1000
@@ -211,7 +216,7 @@ int-import-graph=
 [DESIGN]
 
 # Maximum number of arguments for function / method
-max-args=5
+max-args=10
 
 # Argument names that match this expression will be ignored. Default to name
 # with leading underscore
@@ -233,7 +238,7 @@ max-statements=50
 max-parents=7
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+max-attributes=20
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=2
