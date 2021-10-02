@@ -88,7 +88,7 @@ class Site:
     def __repr__(self):
         return f"{self.__class__.__name__}(self.alias:%r)"
 
-    def __str__(self,fast):
+    def __str__(self, fast):
         ret =  "Site Information:\n"
 
         members = [attr for attr in dir(self) if not callable(getattr(self, attr)) and \
