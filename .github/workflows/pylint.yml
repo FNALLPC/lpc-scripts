@@ -15,9 +15,9 @@ jobs:
         python-version: 3.9
     - name: Install dependencies
       run: |
+        sudo apt-get install libssl-dev libcurl4-openssl-dev python3-dev
         python -m pip install --upgrade pip
-        python -m pip install pylint
-        sudo apt-get install -y python3-pycurl
+        python -m pip install pylint pycurl
     - name: Print some python and pylint information
       run: |
         python --version
