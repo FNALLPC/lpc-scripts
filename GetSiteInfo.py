@@ -11,31 +11,30 @@ can also be returned in a format easily used by other modules.
 
 from __future__ import absolute_import
 import argparse
-from ast import literal_eval
-from collections import namedtuple
+from collections import namedtuple, defaultdict
+from enum import Enum
 import json
 import os
 import shlex
-from io import StringIO
 import subprocess
 import sys
 import traceback
-import pycurl
+from urllib import request
 
-class SiteDBDictEntry(namedtuple('SiteDBDictEntry', 'local_redirector xrootd_endpoint local_path_to_store')):
+class LocalDictEntry(namedtuple('LocalDictEntry', 'local_redirector xrootd_endpoint local_path_to_store')):
     """Namedtuple used to store site information not contained in a database."""
     __slots__ = ()
     def __str__(self):
         return f"{self.local_redirector} {self.xrootd_endpoint} {self.local_path_to_store}"
 
-siteDBDict = {
-    'CERNBox' : SiteDBDictEntry("", 'eosuser-internal.cern.ch', '/eos/user/<u>/<username>/'),
-    'T1_US_FNAL' : SiteDBDictEntry('cmsxrootd-site.fnal.gov', '' , ''),
-    'T2_CH_CERN' : SiteDBDictEntry('', '', ''),
-    'T2_US_Vanderbilt' : SiteDBDictEntry('', 'root://xrootd.accre.vanderbilt.edu/', '/lio/lfs/cms/'),
-    'T3_US_FNALLPC' : SiteDBDictEntry('', '', '/eos/uscms/'),
-    'T3_US_TAMU' : SiteDBDictEntry('', '', '/fdata/hepx/'),
-    'T3_US_UMD' : SiteDBDictEntry('', '', '/mnt/hadoop/cms/')
+localDict = {
+    'CERNBox' : LocalDictEntry("", 'eosuser-internal.cern.ch', '/eos/user/<u>/<username>/'),
+    'T1_US_FNAL' : LocalDictEntry('cmsxrootd-site.fnal.gov', '' , ''),
+    'T2_CH_CERN' : LocalDictEntry('', '', ''),
+    'T2_US_Vanderbilt' : LocalDictEntry('', 'root://xrootd.accre.vanderbilt.edu/', '/lio/lfs/cms/'),
+    'T3_US_FNALLPC' : LocalDictEntry('', '', '/eos/uscms/'),
+    'T3_US_TAMU' : LocalDictEntry('', '', '/fdata/hepx/'),
+    'T3_US_UMD' : LocalDictEntry('', '', '/mnt/hadoop/cms/')
 }
 
 def is_number(num):
@@ -46,74 +45,244 @@ def is_number(num):
     except ValueError:
         return False
 
-class Pledge(namedtuple('Pledge', 'pledge_date quarter cpu disk_store tape_store local_store')):
-    """A namedtuple containing the pledge information for a given site."""
-    __slots__ = ()
-    def __str__(self):
-        return f"{self.pledge_date:10.1f} {self.quarter:4i} {self.cpu:f} {self.disk_store:f} \
-                 {self.tape_store:f} {self.local_store}"
+def get_json_info(url):
+    """Open the page and deserialize the json content for a given url.
+    The loading of the information is somewhat equivalent to the command:
+    `curl -sS --capath /etc/grid-security/certificates/ <url>`
 
-class Responsibility(namedtuple('Responsibility', 'username role email')):
-    """A namedtuple containing the information for the person responsible for a given site."""
-    __slots__ = ()
-    def __str__(self):
-        return f"{self.username} {self.role} {self.email}"
+    This style of loading information was copied from:
+    https://github.com/dmwm/CMSRucio/blob/cbffac994c253746511af7d5d7cf954665bc5026/src/CRIC_test.py
+    """
+    return json.load(request.urlopen(url))
+
+
+class EndpointType(Enum):
+    """Enum class containing endpoint types for grid sites. Some of the values are aliases for
+    different capitalization schemes.
+    """
+    # pylint: disable=invalid-name
+    FILE      = 0
+    file      = 0
+    XROOTD    = 1
+    XRootD    = 1
+    GSIFTP    = 2
+    SRM       = 3
+    SRMv2     = 4
+    perfSONAR = 5
+    ARCCE     = 6
+    WebDAV    = 7
+    Unknown   = 99
+
+    @classmethod
+    def has_member(cls, value):
+        """Return True if the string, value, is a valid enum name (member of the class) and False otherwise."""
+        return value in set(cls.__members__)
 
 class Site:
     """Class for storing OSG site information from SiteDB"""
-    __do_not_cap = ["fqdn","lfn","pfn"]
-    __cap_rule = {"Xrootd":"XRootD","Gsiftp":"gsiftp"}
-    __fast_fields = {"parent_site":None,"child_sites":None,
-                     "pledges":Pledge,"responsibilities":Responsibility}
-
-    def __init__(self,alias):
-        self.facility = ""
+    def __init__(self, alias):
         self.alias = alias
-        self.types = []
-        self.element_type = ""
-        self.fqdn = ""
-        self.lfn = ""
-        self.pfn = ""
-        self.local_redirector = ""
-        self.xrootd_endpoint = ""
-        self.gsiftp_endpoint = ""
+        self.endpoints = defaultdict(set)
+        self.facility = ""
+        self.fts = []
+        self.glidein_name = ""
+        self.name = ""
         self.local_path_to_store = ""
-        self.job_manager = ""
-        self.is_primary = False
-        self.parent_site = ""
-        self.child_sites = []
-        self.pledges = []
-        self.responsibilities = []
+        self.local_redirector = ""
+        self.pfn = ""
+        self.rse = ""
+        self.state = ""
+        self.status = ""
+        self.type = ""
+        self.vo_name = ""
+
+    __do_not_cap = ["pfn"]
+    __cap_rule = {"Fts":"FTS", "Glidein":"glidein", "Gsiftp":"gsiftp", "Rse":"RSE", "Vo":"VO"}
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(self.alias:%r)"
+        return f"{self.__class__.__name__}({self.alias!r})"
 
-    def __str__(self, fast):
+    def __str__(self):
         ret =  "Site Information:\n"
 
-        members = [attr for attr in dir(self) if not callable(getattr(self, attr)) and \
-                    not attr.startswith("__") and \
-                    not attr.startswith("_Site__")]
-        for member in members:
+        useful_members = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not \
+                          attr.startswith("__") and not attr.startswith("_Site__")]
+        for member in useful_members:
             description = ' '.join(member.split('_'))
             if description not in self.__do_not_cap:
                 description = description.capitalize()
             for key, value in self.__cap_rule.items():
                 description = description.replace(key, value)
-            if not fast and member in self.__fast_fields:
-                if self.__fast_fields[member] is not None:
-                    ret += "\t" + description + ": " + str(self.__fast_fields[member]._fields) + "\n"
-                    for item in literal_eval(f"self.{member}"):
-                        ret += "\t\t"+str(item)+"\n"
-                else:
-                    ret += "\t" + description + ": " + str(literal_eval(f"self.{member}")) + "\n"
+
+            if member == "endpoints":
+                ret += "\t" + description + ":\n"
+                for key, value in getattr(self, member).items():
+                    ret += "\t\t" + key.name + ": " + ", ".join(value) + "\n"
             else:
-                ret += "\t" + description + ": " + str(literal_eval(f"self.{member}")) + "\n"
+                ret += "\t" + description + ": " + str(getattr(self, member)) + "\n"
         return ret
 
-    def create_xrootd_endpoint(self):
-        """Properly format and set the XRootD endpoint for the Site."""
-        self.xrootd_endpoint = f"root://{self.fqdn}/"
+    def get_cric_info(self, debug = False, print_json = False):
+        """Get as much information as possible from the Computing Resource Information Catalog (CRIC).
+        This catalog contains information about physical and CMS logical computing resources.
+        the online web portal is at https://cms-cric.cern.ch/.
+        """
+        if debug:
+            print("GetSiteInfo::Site::get_cric_info()")
+
+        # Alternate Links:
+        #   'https://cms-cric.cern.ch/api/cms/facility/query/list/?json&name=US_Colorado'+site.alias[2:]
+        data = get_json_info('https://cms-cric.cern.ch/api/cms/site/query/list/?json&name=' + self.alias)
+        try:
+            if print_json:
+                print(data)
+            data = data[self.alias]
+            self.facility = data['facility']
+            self.name = data['name']
+            self.state = data['state']
+            self.status = data['status']
+            self.vo_name = data['vo_name']
+        except Exception as exc:
+            if debug:
+                raise RuntimeError(traceback.format_exc()) from exc
+
+        data = get_json_info('https://cms-cric.cern.ch/api/cms/glideinentry/query/list/?json&site=' + self.alias)
+        try:
+            if print_json:
+                print(data)
+            _, data = data.popitem()
+            self.glidein_name = data['name']
+        except RuntimeError as rterr:
+            if debug:
+                raise RuntimeError(traceback.format_exc()) from rterr
+        except KeyError as keyerr:
+            if debug:
+                raise KeyError(traceback.format_exc()) from keyerr
+
+        # Site information by tier
+        #   https://cms-cric.cern.ch/api/cms/site/query/list/?json&tier_level=3
+
+    def get_cmssst_endpoint(self, debug = False, print_json = False):
+        """Get as much site endpoint information as possible from CMSSST, the online web portal for which is
+        located at https://cmssst.web.cern.ch/cmssst/site_info/site_endpoints.json.
+        """
+        if debug:
+            print("GetSiteInfo::Site::get_cmssst_endpoint()")
+        result = get_json_info("http://cmssst.web.cern.ch/cmssst/site_info/site_endpoints.json")
+        try:
+            if print_json:
+                print(result)
+            selected_item = next((item for item in result['data'] if item["site"] == self.alias), None)
+            if selected_item is not None:
+                prefix = ''
+                suffix = ''
+                if selected_item['type'] == EndpointType.XROOTD.name:
+                    prefix = 'root://'
+                    suffix = '/'
+                elif selected_item['type'] == EndpointType.SRM.name or selected_item['type'] == EndpointType.SRMv2.name:
+                    prefix = 'srm://'
+                    suffix = '/srm/managerv2?SFN='
+                self.endpoints[EndpointType[selected_item['type'].replace('-','')]].add(prefix+selected_item['endpoint']+suffix)
+        except Exception as exc:
+            print("Unable to get the list of endpoints from http://cmssst.web.cern.ch")
+            print(result)
+            if debug:
+                raise RuntimeError(traceback.format_exc()) from exc
+
+    def get_siteconf_info(self, debug = False, max_endpoint_values_per_type = 9999, print_json = False):
+        """Gather additional information from the storage.json files located at /cvmfs/cms.cern.ch/SITECONF.
+        This feature requires that the /cvmfs/cms.cern.ch folder be mounted on the host. These files are also
+        stored on GitLab at https://gitlab.cern.ch/SITECONF.
+        """
+        if debug:
+            print("GetSiteInfo::Site::get_siteconf_endpoints()")
+        try:
+            with open(f'/cvmfs/cms.cern.ch/SITECONF/{self.alias}/storage.json', encoding = "utf-8") as file:
+                data = json.load(file)[0]
+                if print_json:
+                    print(data)
+
+                self.type = data["type"]
+                self.rse = data["rse"]
+                self.fts += data["fts"]
+
+                for protocol in data["protocols"]:
+                    if "prefix" not in protocol:
+                        continue
+
+                    protocol_name = "Unknown"
+                    if EndpointType.has_member(protocol["protocol"]):
+                        protocol_name = protocol["protocol"]
+
+                    if EndpointType[protocol_name] in self.endpoints and \
+                        len(self.endpoints[EndpointType[protocol_name]]) >= max_endpoint_values_per_type:
+                        shortest_endpoint = min(self.endpoints[EndpointType[protocol_name]], key=len)
+                        if len(shortest_endpoint) < len(protocol["prefix"]):
+                            self.endpoints[EndpointType[protocol_name]].remove(shortest_endpoint)
+                            self.endpoints[EndpointType[protocol_name]].add(protocol["prefix"])
+                    else:
+                        self.endpoints[EndpointType[protocol_name]].add(protocol["prefix"])
+                    if protocol_name == EndpointType.SRMv2.name and "gsiftp://" in protocol["prefix"] and \
+                        EndpointType.GSIFTP not in self.endpoints:
+                        self.endpoints[EndpointType.GSIFTP].add(protocol["prefix"])
+                    if EndpointType.GSIFTP in self.endpoints:
+                        self.pfn = max(self.endpoints[EndpointType.GSIFTP], key=len)
+        except Exception as exc:
+            print(f"Unable to get a list of endpoints from /cvmfs/cms.cern.ch/SITECONF/{self.alias}/storage.json")
+            if debug:
+                raise RuntimeError(traceback.format_exc()) from exc
+
+    def add_local_information(self):
+        """Add information to the Site which is in the local dictionary and not contained online."""
+        if self.alias in localDict:
+            self.local_redirector = localDict[self.alias].local_redirector \
+                                    if localDict[self.alias].local_redirector != '' else "None"
+            self.local_path_to_store = localDict[self.alias].local_path_to_store \
+                                       if localDict[self.alias].local_path_to_store != '' else "None"
+            if localDict[self.alias].xrootd_endpoint != '':
+                self.endpoints[EndpointType.XROOTD].add(localDict[self.alias].xrootd_endpoint)
+
+    def print_shell_str(self, shell = None, env = False):
+        """An alternate method for printing the site information. this method is capable of printing
+        a subset of the information in a more compact, shell-friendly manner. It is also capable of
+        formatting the information so that it is easier to export to the shell environment.
+        """
+        separator = "=" if env else " : "
+        try:
+            for item_name in shell:
+                item = getattr(self, item_name)
+                if isinstance(item, str):
+                    print(f"{item_name}{separator}{str(item)}")
+                else:
+                    for i_subitem, subitem_name in enumerate(item):
+                        subitem = None
+                        if isinstance(item, list):
+                            subitem = item[i_subitem]
+                            print(f"{item_name}{separator if not env else '_'}{str(i_subitem)}{separator}{str(subitem)}")
+                        else:
+                            subitem = item[subitem_name]
+                            print(f"{item_name}{separator if not env else '_'}{subitem_name.name}"
+                                  f"{separator}{str(','.join(subitem))}")
+        except Exception as exc:
+            print("Unable to print the shell formatted information.\n"
+                  "Double check that you have provided a valid list of information to print.\n"
+                  "Use 'GetSiteInfo.py --help' to check the list of acceptable options.")
+            raise RuntimeError(traceback.format_exc()) from exc
+
+    def get_info_from_all_sources(self, debug = False, max_endpoint_values_per_type = 9999, print_json = False):
+        """This function is a shortcut for gathering information from all available resources."""
+
+        # Get information from CRIC
+        self.get_cric_info(debug, print_json)
+
+        # Get information from cmssst
+        self.get_cmssst_endpoint(debug, print_json)
+
+        # Get more endpoints from SITECONF
+        self.get_siteconf_info(debug, max_endpoint_values_per_type, print_json)
+
+        # add the information stored in the dictionary defined at the top
+        self.add_local_information()
 
 def run_checks(quiet):
     """Does some basic sanity checks before proceeding with the rest of the module.
@@ -125,14 +294,20 @@ def run_checks(quiet):
     if not quiet:
         print("Running sanity checks before proceeding ...")
 
-    #check the python version
+    # check the python version
     min_python_version = (3,0,0)
     if sys.version_info < min_python_version:
         raise RuntimeError(f"Must be using Python "
                            f"{min_python_version[0]}.{min_python_version[1]}.{min_python_version[2]} "
                            f"or higher. Try running getPythonVersions.py to get a list of standalone python versions.")
 
-    #check for a grid proxy
+    # check that the /cvmfs/cms.cern.ch/SITECONF/ directory exists.
+    # needed by Site.get_siteconf_info(...)
+    directory = "/cvmfs/cms.cern.ch/SITECONF/"
+    if not os.path.exists(directory):
+        raise RuntimeError(f"The directory {directory} is not mounted.")
+
+    # check for a grid proxy
     with open(os.devnull, 'wb') as devnull:
         returncode = 0
         with subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'),
@@ -155,211 +330,57 @@ def run_checks(quiet):
 
     return os.environ['X509_USER_PROXY']
 
-def get_curl_info(url):
-    """Setup and run a pycurl task for a given url."""
-    buffer = StringIO()
-    curl_object = pycurl.Curl()
-    curl_object.setopt(curl_object.URL, url)
-    curl_object.setopt(pycurl.HTTPGET, 1)
-    curl_object.setopt(pycurl.SSL_VERIFYPEER, 0) #Set to 0 and not 1 because CERN certs are self signed
-    curl_object.setopt(pycurl.SSL_VERIFYHOST, 2)
-    curl_object.setopt(pycurl.SSLKEY, os.environ['X509_USER_PROXY'])
-    curl_object.setopt(pycurl.SSLCERT, os.environ['X509_USER_PROXY'])
-    curl_object.setopt(pycurl.CAINFO, '/etc/grid-security/certificates')
-    curl_object.setopt(pycurl.FOLLOWLOCATION, 1)
-    curl_object.setopt(curl_object.WRITEFUNCTION, buffer.write)
-    curl_object.perform()
-    curl_object.close()
-    return buffer.getvalue()
+def get_site_info(site_alias = "",
+                  site = None,
+                  debug = False,
+                  env = False,
+                  max_endpoint_values_per_type = 9999,
+                  print_json = False,
+                  quiet = False,
+                  shell = None):
+    """Main module function which coordinates the various information finding tasks and decides how to print the
+    information to STDOUT.
+    """
+    run_checks(quiet|(shell is not None))
 
-def find_facility_from_alias(site, debug = False):
-    """Get the facility information for a given Site."""
-    body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-names')
-    if debug:
-        print("GetSiteInfo::find_facility_from_alias()")
-    for ibody in body.split('\n'):
-        if len(ibody.split('"')) < 6:
-            continue
-        current_alias = ibody.split('"')[5]
-        if debug:
-            print("\t",ibody," current_alias:", current_alias)
-        if current_alias == site.alias:
-            site.facility = ibody.split('"')[3]
-            site.types.append(ibody.split('"')[1])
-
-def find_se_info(site, debug = False):
-    """Get the storage element information for a given Site."""
-    body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-resources')
-    if debug:
-        print("GetSiteInfo::find_se_info()")
-    for ibody in body.split('\n'):
-        if len(ibody.split('"')) < 8:
-            continue
-        current_site = ibody.split('"')[1]
-        if debug:
-            print("\t",ibody," current_site:", current_site)
-        if current_site == site.facility:
-            site.element_type = ibody.split('"')[3]
-            site.fqdn = ibody.split('"')[5]
-            site.is_primary = bool(ibody.split('"')[7])
-
-def get_site_associations(site, debug = False):
-    """Get the other sites associated to the given Site."""
-    body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-associations')
-    if debug:
-        print("GetSiteInfo::get_site_associations()")
-    for ibody in body.split('\n'):
-        if len(ibody.split('"')) < 5:
-            continue
-        current_parent = ibody.split('"')[1]
-        current_child = ibody.split('"')[3]
-        if debug:
-            print("\t",ibody," current_parent:", current_parent," current_child:", current_child)
-        if current_parent == site.facility:
-            site.child_sites.append(ibody.split('"')[3])
-        if current_child == site.facility:
-            site.parent_site = ibody.split('"')[1]
-    if site.parent_site == "":
-        site.parent_site = "None"
-
-def get_pledges(site, debug = False):
-    """Get the pledges make by a given Site."""
-    body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/resource-pledges')
-    if debug:
-        print("GetSiteInfo::get_pledges()")
-    for ibody in body.split('\n'):
-        if len(ibody.split('"')) < 3:
-            continue
-        current_site = ibody.split('"')[1]
-        if debug:
-            print("\t",ibody," current_site:", current_site)
-        if current_site == site.facility:
-            pledge_list = ibody.split('"')[2].split(",")
-            local_store = float(pledge_list[6].split(']')[0]) if is_number(pledge_list[6].split(']')[0]) else "null"
-            site.pledges.append(Pledge(float(pledge_list[1]),
-                                       int(pledge_list[2]),
-                                       float(pledge_list[3]),
-                                       float(pledge_list[4]),
-                                       float(pledge_list[5]),
-                                       local_store))
-
-def get_site_responsibilities(site, debug = False):
-    """Get the responsibilities for a given Site."""
-    body = get_curl_info('https://cmsweb.cern.ch/sitedb/data/prod/site-responsibilities')
-    if debug:
-        print("GetSiteInfo::get_site_responsibilities()")
-    for ibody in body.split('\n'):
-        if len(ibody.split('"')) < 6:
-            continue
-        current_site = ibody.split('"')[3]
-        if debug:
-            print("\t",ibody," current_site:", current_site)
-        if current_site == site.facility:
-            site.responsibilities.append(Responsibility(ibody.split('"')[1],
-                                                        ibody.split('"')[5],
-                                                        ""))
-
-def get_lfn_and_pfn_from_phedex(site, debug = False):
-    """Get the LFN and PFN information from PhEDEx for a given Site."""
-    jstr = get_curl_info('https://cmsweb.cern.ch/phedex/datasvc/json/prod/lfn2pfn?node=' +
-                       site.alias +
-                       '&lfn=/store/user&protocol=srmv2')
-    if debug:
-        print("GetSiteInfo::getPDNFromPhEDEx()")
-    try:
-        result = json.loads(jstr)
-        site.lfn = result['phedex']['mapping'][0]['lfn']
-        site.pfn = result['phedex']['mapping'][0]['pfn']
-    except Exception as exception:
-        print("Unable to get the LFN and PFN for", site.alias, "from PhEDEx")
-        print(jstr)
-        if debug:
-            raise RuntimeError(traceback.format_exc()) from exception
-        site.lfn = "None"
-        site.pfn = "None"
-
-def add_information_not_in_site_db(site):
-    """Add information to the Site which is in the local dictionary and not contained online."""
-    if site.alias in siteDBDict:
-        site.local_redirector = siteDBDict[site.alias].local_redirector \
-                                if siteDBDict[site.alias].local_redirector != '' else "None"
-        site.local_path_to_store = siteDBDict[site.alias].local_path_to_store \
-                                   if siteDBDict[site.alias].local_path_to_store != '' else "None"
-        site.gsiftp_endpoint = site.pfn
-        site.xrootd_endpoint = siteDBDict[site.alias].xrootd_endpoint
-
-    if site.xrootd_endpoint == '':
-        site.create_xrootd_endpoint()
-
-
-def get_site_info(site_alias="", site=None, cric=False, debug=False, fast=False, print_json=False, quiet=False):
-    """Main module function which coordinated the various information finding tasks."""
     if site is None:
         site = Site(site_alias)
-    run_checks(quiet)
 
-    # most of this information is from SiteDB, but the LFN and PFN strings are from PhEDEx
-    if not cric:
-        find_facility_from_alias(site, debug)
-        find_se_info(site, debug)
-        get_lfn_and_pfn_from_phedex(site, debug)
-        if not fast:
-            get_site_associations(site, debug)
-            get_pledges(site, debug)
-            get_site_responsibilities(site, debug)
-    else:
-        jstr = get_curl_info('https://cms-cric.cern.ch/api/cms/site/query/?json&name=' + site.alias)
-        data = json.loads(jstr)[site.alias]
-        site.facility = data['facility']
-
-        jstr = get_curl_info('https://cms-cric.cern.ch/api/cms/glideinentry/query/list/?json&site=' + site.alias)
-        if print_json:
-            print(jstr)
-        _, data = json.loads(jstr).popitem()
-        site.job_manager = data['queues'][0]['ce_jobmanager']
-        site.responsibilities.append(Responsibility("<Unknown>",
-                                                    "Site Admin Contact",
-                                                    data['computeunits'][0]['site_admin_contacts']))
-
-
-    # add the information stored in the dictionary defined at the top
-    add_information_not_in_site_db(site)
+    site.get_info_from_all_sources(debug, max_endpoint_values_per_type, print_json)
 
     # print the site information to the console
-    if not quiet and not print_json:
-        print(site.__str__(fast))
+    if not quiet:
+        if shell is not None and isinstance(shell, list):
+            site.print_shell_str(shell, env)
+        else:
+            print(site.__str__())
 
     return site
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="""Access SiteDB and PhEDEx to retrieve a sites information.\n
-                                     Information on how this information is obtained can be found at 
-                                     https://cms-http-group.web.cern.ch/cms-http-group/apidoc/sitedb/current/introduction.html\n
-                                     Haven't yet implemented esp-credit 
-                                     (https://cmsweb.cern.ch/sitedb/data/prod/esp-credit)\n
-                                     or parsed together the federations 
-                                     (https://cmsweb.cern.ch/sitedb/data/prod/federations), the\n
-                                     federation sites 
-                                     (https://cmsweb.cern.ch/sitedb/data/prod/federations-sites), and the
-                                     federation pledges 
-                                     (https://cmsweb.cern.ch/sitedb/data/prod/federations-pledges).""",
-                                     epilog="And those are the options available. Deal with it.")
+    parser = argparse.ArgumentParser(description="""Access CRIC and PhEDEx to retrieve a sites information.""",
+                                     epilog="""When the --shell option comes before the positional argument you need
+                                     to add '--' (no quotes) before the positional argument.\n\n
+                                     And those are the options available. Deal with it.""")
     parser.add_argument("site_alias",
                         help="The alias of the server whose information you want to retrieve")
-    parser.add_argument("-c","--cric", action="store_true",
-                        help="Gather site information from CRIC rather than SiteDB. " \
-                        "This feature is currently experimental. (default=%(default)s)")
-    parser.add_argument("-d","--debug", action="store_true",
-                        help="Shows some extra information in order to debug this program (default=%(default)s)")
-    parser.add_argument("-f","--fast", action="store_true",
-                        help="Retrieves less information, but will run faster (default=%(default)s)")
-    parser.add_argument("-j","--print_json", action="store_true",
-                        help="Print the full site information from CRIC in JSON format. " \
-                        "This feature is only available with the --cric option (default=%(default)s)")
-    parser.add_argument("-q","--quiet", action="store_true",
-                        help="Print the resulting information to stdout (default=%(default)s)")
-    parser.add_argument('--version', action='version', version='%(prog)s v1.1')
-    #Change to 2.0 (Franklin) when CRIC functionality complete.
+    parser.add_argument("-d","--debug", action = "store_true",
+                        help = "Shows some extra information in order to debug this program (default = %(default)s)")
+    parser.add_argument("-e","--env", action = "store_true",
+                        help = "Format the shell output in a way that the values can be easily set as environment \
+                              variables (default = %(default)s")
+    parser.add_argument("-j","--print_json", action = "store_true",
+                        help = "Print the full site information from CRIC in JSON format. " \
+                        "This feature is only available with the --cric option (default = %(default)s)")
+    parser.add_argument("-m", "--max_endpoint_values_per_type", type = int, default = 9999,
+                        help = "The maximum number of values to store per endpoint type (default = %(default)s)")
+    parser.add_argument("-q","--quiet", action = "store_true",
+                        help = "Print the resulting information to stdout (default = %(default)s)")
+    parser.add_argument("-s","--shell",  default = None, nargs = '+',
+                        choices = ['alias','endpoints','facility','fts','glidein_name','name','local_path_to_store',
+                                 'local_redirector','pfn','rse','state','status','type','vo_name'],
+                        help = "Print selected information in a shell friendly manner (default = %(default)s)")
+    parser.add_argument('--version', action = 'version', version = '%(prog)s v2.0 (Franklin)')
 
     args = parser.parse_args()
 
