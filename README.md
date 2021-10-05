@@ -9,7 +9,7 @@ Some automated linting for both Python and Bash takes place using GitHub Actions
 ### Manual
 Much of the code contained here relies on certain mounts (i.e. cvmfs), specific disk systems (eos), or specially installed software (i.e. voms-proxy-init). The codes which rely on these can't be easily tested using automated GitHub Actions jobs. Below you will find some directions on how to manually test the code.
 
-**Please note***, these tests do not constitute complete coverage. Some additional manual testing may be necessary.*
+*Please note, these tests do not constitute complete coverage. Some additional manual testing may be necessary.*
 
 #### Bats for Bash scripts
 
