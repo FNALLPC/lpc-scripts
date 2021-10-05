@@ -4,14 +4,14 @@
 The module will print out a full map in dictionary format, a list of the files with their full paths,
 and a list of directories with their full paths. The module can be run using the following command:
 
-python3 RecursiveFileList.py <path>
+python3 RecursiveFileList.py <absolute path>
 
 It can also be imported by another python program and used like:
 
 #import RecursiveFileList
-RecursiveFileList.map_dir("<path>")
-RecursiveFileList.get_file_list("<path>")
-RecursiveFileList.get_dir_list("<path>")
+RecursiveFileList.map_dir("<absolute path>")
+RecursiveFileList.get_file_list("<absolute path>")
+RecursiveFileList.get_dir_list("<absolute path>")
 
 The 'map_dir' will return a dictionary while the other two functions will return lists.
 

@@ -150,8 +150,9 @@ class Site:
         try:
             if print_json:
                 print(data)
-            _, data = data.popitem()
-            self.glidein_name = data['name']
+            if len(data) > 0:
+                _, data = data.popitem()
+                self.glidein_name = data['name']
         except RuntimeError as rterr:
             if debug:
                 raise RuntimeError(traceback.format_exc()) from rterr
