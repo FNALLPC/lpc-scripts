@@ -13,11 +13,11 @@ import sys
 from RecursiveFileList import get_file_list
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-r", "--redir", meta = "redir", default = "root://cmseos.fnal.gov/",
+parser.add_argument("-r", "--redir", metavar = "redirector", default = "root://cmseos.fnal.gov/",
                     help = "the XRootD endpoint (default = %(default)s)")
-parser.add_argument("-s", "--source", meta = "source",
+parser.add_argument("-s", "--source", metavar = "source",
                     help = "the source directory")
-parser.add_argument("-t", "--target", meta = "target",
+parser.add_argument("-t", "--target", metavar = "target",
                     help = "the target directory")
 args = parser.parse_args()
 
@@ -34,6 +34,7 @@ if args.source is None or args.target is None:
 
 for sourceFile in get_file_list(args.source):
     targetFile = sourceFile.replace(args.source, args.target)
-    print(subprocess.check_output(f"xrdcp {sourceFile} {args.redir}/{targetFile}",
-                                  stderr=subprocess.STDOUT,
-                                  shell=True))
+    command = f"xrdcp {sourceFile} {args.redir}/{targetFile}"
+    output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)
+    print(command)
+    print(output.decode('utf-8'))
