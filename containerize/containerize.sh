@@ -46,7 +46,7 @@ usage(){
     echo "-C                  cleanup the temporary files when finished making the image (default = ${CLEAN})"
     echo "-d [dir]            project installation area inside the container (default = ${DIR})"
     echo "-f [file]           the Dockerfile to use to build the image (default = ${FILE})"
-    echo "-t [include]        list specific files or directories (absolute path) to include in the tarball (default = ${INCLUDE})"
+    echo "-i [include]        list specific files or directories (absolute path) to include in the tarball (default = ${INCLUDE})"
     echo "-j [json]           path to the json file containing the path to cache (default = ${JSON})"
     echo "-m [maxsize]        the maximum size (in bytes) of the tarball before returning an error (defaul = ${MAXTARSIZE})"
     echo "-r [root]           change the 'root' and 'runroot' locations for buildah (default = ${ROOT})"
@@ -142,18 +142,18 @@ IFS=$'\n'
 list_of_cache_files=()
 # https://stackoverflow.com/questions/1955505/parsing-json-with-unix-tools
 for dir in $(jq -r '.Directories[] | .Path + " " + (.Cache|tostring)' "${JSON}"); do
-    IFS=' '
-    dirarray=("$dir")
+    IFS=' '; read -r -a dirarray <<<"$dir"
     path=${dirarray[0]}
     path=$(eval echo "${path}")
     cache=${dirarray[1]}
     cache_file=${path}/CACHEDIR.TAG
     if [[ "${cache}" == "1" ]] && [[ ! -f ${cache_file} ]]; then
         echo -e "Cache ${path}"
-        echo "${CACHEDIR} > ${cache_file}"
+        echo "${CACHEDIR}" > "${cache_file}"
         list_of_cache_files=("${list_of_cache_files[@]}" "${cache_file}")
     elif [[ "${cache}" == "1" ]] && [[ -f "${cache_file}" ]]; then
         echo -e "Already cached ${path}"
+        list_of_cache_files=("${list_of_cache_files[@]}" "${cache_file}")
     elif [[ "${cache}" == "0" ]] && [[ -f "${cache_file}" ]]; then
         echo -e "Uncache ${path}"
         rm "${cache_file}"
@@ -174,8 +174,9 @@ if [ -z "${TAR}" ]; then
         fi
         INDIVIDUAL_FILES="${INDIVIDUAL_FILES} $(splitpath "${f}")"
     done
+    IFS=' '; read -r -a INDIVIDUAL_FILES_ARRAY <<<"$INDIVIDUAL_FILES"
 
-    tar "${KEEPCACHE}" "${VCS}" -zcf "${CMSSW_VERSION}".tar.gz -C "${CMSSW_BASE}"/.. "${CMSSW_VERSION}" "${INDIVIDUAL_FILES}"
+    tar "${KEEPCACHE}" "${VCS}" -zcf "${CMSSW_VERSION}.tar.gz" -C "${CMSSW_BASE}/.." "${CMSSW_VERSION}" "${INDIVIDUAL_FILES_ARRAY[@]}"
     TAR="${CMSSW_VERSION}.tar.gz"
 fi
 
