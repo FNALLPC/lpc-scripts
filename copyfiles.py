@@ -79,7 +79,7 @@ class GfalCommand(Command):
         elif site.xrootd_endpoint != 'None':
             return "root://" + site.xrootd_endpoint + "//store/user/" + site.username + "/"
         else:
-            site.print_site_info(fast = True)
+            print(site)
             raise RuntimeError(f"The site {site.alias} must be 'local' or have either a gsiftp or xrootd endpoint.")
 
     def build_command(self):
@@ -124,7 +124,7 @@ class XRootDCommand(Command):
             else:
                 return "root://" + site.xrootd_endpoint + "//store/user/" + site.username + "/"
         else:
-            site.print_site_info(fast = True)
+            print(site)
             raise RuntimeError(f"The site {site.alias} must be 'local' or have an xrootd endpoint.")
 
     def build_command(self):
@@ -161,9 +161,9 @@ class Location(GetSiteInfo.Site):
         self.username = username
         self.path = path
 
-    def print_location_info(self,fast):
+    def print_location_info(self):
         """Print the Site and Location information to STDOUT."""
-        print(super().__str__(fast))
+        print(super())
         print("\tusername:", self.username)
         print("\tPath:", self.path)
 
@@ -485,12 +485,12 @@ def main(arguments = argparse.Namespace()):
                           arguments.start_user,
                           arguments.start_path + "/" if arguments.start_server != 'local' else arguments.start_path)
     if start_site.alias != 'local':
-        GetSiteInfo.get_site_info(site = start_site, debug = arguments.debug, fast = True, quiet = True)
+        GetSiteInfo.get_site_info(site = start_site, debug = arguments.debug, quiet = True)
     end_site = Location(arguments.end_server,
                         arguments.end_user,
                         arguments.end_path + "/" if arguments.end_server != 'local' else arguments.end_path)
     if end_site.alias != 'local':
-        GetSiteInfo.get_site_info(site = end_site, debug = arguments.debug, fast = True, quiet = True)
+        GetSiteInfo.get_site_info(site = end_site, debug = arguments.debug, quiet = True)
 
     #local to local copies can use POSIX commands
     if start_site.alias == 'local' and end_site.alias == 'local':
