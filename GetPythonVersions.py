@@ -306,12 +306,80 @@ def pprinttable(rows):
         for irow_item, row_item in enumerate(row):
             print(f"{row._fields[irow_item]:hwidth} = {row_item}")
 
-def get_python_versions(args):
+def get_python_versions(agrep = "",
+                        debug = False,
+                        grep = "",
+                        lgrep = "",
+                        pgrep = "",
+                        path = False,
+                        shorten = False,
+                        width = 120):
     """This is the main function for the GetPythonVersion module.
     The entire module runs through this function. It coordinates the argument parsing,
     version finding, and printing the final table.
     """
 
+    # Set up the container of versions found
+    versions = []
+
+    # Get current running version
+    versions += [Version(sys.version_info[0],
+                         sys.version_info[1],
+                         sys.version_info[2],
+                         "",
+                         sys.executable,
+                         "Currently running version",
+                         {"N/A":(get_architecture(),"Unknown" if not path \
+                                 else sys.executable if not shorten else get_short_path(sys.executable))})]
+
+    # Get the system version
+    python_path = "/usr/bin/python"
+    versions += get_version_popen(python_path,
+                                "Default system python (" + ("sl7)" if os.uname()[2].find("el6") < 0 else "sl6)"),
+                                shorten,
+                                120,
+                                "N/A",
+                                get_architecture(),
+                                "N/A" if not path else python_path if not shorten \
+                                else get_short_path(python_path))
+
+    # Get the version if in a CMSSW release
+    if 'CMSSW_BASE' in os.environ:
+        python_path = os.environ['CMSSW_RELEASE_BASE']+"/external/"+os.environ['SCRAM_ARCH']+"/bin/python"
+        versions += get_version_popen(python_path,
+                                    "Python version from " + os.environ['CMSSW_VERSION'],
+                                    shorten,
+                                    120,
+                                    "N/A",
+                                    os.environ['SCRAM_ARCH'],
+                                    os.environ['CMSSW_BASE'] if not path else python_path if not shorten \
+                                    else get_short_path(python_path))
+
+    # Get the LCG python versions available on CVMFS
+    lcg_version_info_tuple = get_lcg_versions(agrep = agrep,
+                                              lgrep = lgrep,
+                                              debug = debug)
+
+    # Collect the python versions and their associated architectures
+    python_dict = collect_python_info(lcg_version_info_tuple,
+                                      grep = grep,
+                                      path = path,
+                                      pgrep = pgrep,
+                                      shorten = shorten,
+                                      debug = debug)
+
+    # Convert from the raw version namedtuples to the formatted versions used for printing
+    versions  = versions_to_formatted_versions(versions, width)
+    versions += dict_to_formatted_versions(python_dict, width)
+
+    # Print the formatted table
+    print("WARNING::getPythonVersions::Do not setup CMSSW and LCG software in the same environment.\n" \
+          "Bad things will happen.\n")
+    print("To setup the LCG software do:\n"
+              "  source /cvmfs/sft.cern.ch/lcg/views/<LCG Version>/<Architecture>/setup.(c)sh\n")
+    pprinttable(versions)
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description="""
 Get the python versions available on a given server.
@@ -356,65 +424,4 @@ Mischief managed!""")
         print('Argument List:', str(sys.argv))
         print("Argument ", args, "\n")
 
-    # Set up the container of versions found
-    versions = []
-
-    # Get current running version
-    versions += [Version(sys.version_info[0],
-                         sys.version_info[1],
-                         sys.version_info[2],
-                         "",
-                         sys.executable,
-                         "Currently running version",
-                         {"N/A":(get_architecture(),"Unknown" if not args.path \
-                                 else sys.executable if not args.shorten else get_short_path(sys.executable))})]
-
-    # Get the system version
-    python_path = "/usr/bin/python"
-    versions += get_version_popen(python_path,
-                                "Default system python (" + ("sl7)" if os.uname()[2].find("el6") < 0 else "sl6)"),
-                                args.shorten,
-                                120,
-                                "N/A",
-                                get_architecture(),
-                                "N/A" if not args.path else python_path if not args.shorten \
-                                else get_short_path(python_path))
-
-    # Get the version if in a CMSSW release
-    if 'CMSSW_BASE' in os.environ:
-        python_path = os.environ['CMSSW_RELEASE_BASE']+"/external/"+os.environ['SCRAM_ARCH']+"/bin/python"
-        versions += get_version_popen(python_path,
-                                    "Python version from " + os.environ['CMSSW_VERSION'],
-                                    args.shorten,
-                                    120,
-                                    "N/A",
-                                    os.environ['SCRAM_ARCH'],
-                                    os.environ['CMSSW_BASE'] if not args.path else python_path if not args.shorten \
-                                    else get_short_path(python_path))
-
-    # Get the LCG python versions available on CVMFS
-    lcg_version_info_tuple = get_lcg_versions(agrep = args.agrep,
-                                              lgrep = args.lgrep,
-                                              debug = args.debug)
-
-    # Collect the python versions and their associated architectures
-    python_dict = collect_python_info(lcg_version_info_tuple,
-                                      grep = args.grep,
-                                      path = args.path,
-                                      pgrep = args.pgrep,
-                                      shorten = args.shorten,
-                                      debug = args.debug)
-
-    # Convert from the raw version namedtuples to the formatted versions used for printing
-    versions  = versions_to_formatted_versions(versions, args.width)
-    versions += dict_to_formatted_versions(python_dict, args.width)
-
-    # Print the formatted table
-    print("WARNING::getPythonVersions::Do not setup CMSSW and LCG software in the same environment.\n" \
-          "Bad things will happen.\n")
-    print("To setup the LCG software do:\n"
-              "  source /cvmfs/sft.cern.ch/lcg/views/<LCG Version>/<Architecture>/setup.(c)sh\n")
-    pprinttable(versions)
-
-if __name__ == '__main__':
-    get_python_versions(sys.argv[1:])
+    get_python_versions(**vars(args))
