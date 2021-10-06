@@ -52,19 +52,17 @@ To remove the Bats software run:
 
 #### Pytest for Python modules
 
-To run the python unit/integration tests, you will need to have pytest installed. Currently the version of pytest in CMSSW_12_1_0_pre3 does not work and there is no pytest module installed on the cmslpc host machines. To create a local virtual environment with pytest installed, use the commands:
+To run the python unit/integration tests, you will need to have pytest installed. Currently the version of pytest in CMSSW_12_1_0_pre3 does not work and there is no pytest module installed on the cmslpc host machines. To create a local virtual environment with pytest installed, use the following commands from within the `<path to lpc-scripts>/lpc-scripts` directory:
 
 ```bash
-cd <path to lpc-scripts>/lpc-scripts
-python3 -m venv venv
-source venv/bin/activate
-pip install pytest six
+pytest_control.sh
+source test/venv/bin/activate
 ```
 
 You can then run the tests by using the command:
 
 ```bash
-pytest test/test.py
+./test/pytest_control.sh
 ```
 
 You should see an output similar to:
@@ -79,11 +77,25 @@ test/test.py s......                                                            
 ====================================================== 6 passed, 1 skipped in 5.74s ======================================================
 ```
 
-For additional output you can use the options `--verbosity=<VERBOSITY>`. By default all of the output from the various tests is captured by pytest. To see the output of successful tests use the option `-rP`. To see the output of failed tests (default) use the option `-rx`.
+You can pass addition options to pytest using the `-o` flag. For example, you could run the following command to increase the verbosity of pytest:
+
+```bash
+./test/pytest_control.sh -o '"--verbosity=3"'
+```
+
+Other helpful pytest options include:
+  - `-rp`: To see the output of successful tests. This is necessary because by default all of the output from the various tests is captured by pytest.
+  - `-rx`: To see the output of failed tests (default).
 
 Once you're finished, you can exit the virtual environment by using the command:
 ```bash
 deactivate
 ```
 
-The virtual environment can be removed by simply removing the `venv` directory.
+To remove the virtual environment use the command:
+
+```bash
+./test/pytest_control.sh -r
+```
+
+which will simply remove the `venv` directory.
