@@ -45,7 +45,7 @@ Expected output:
 
 #### Pytest for Python modules
 
-To run the python unit/integration tests, you will need to have pytest installed. Currently the version of pytest in CMSSW_12_1_0_pre3 does not work and there is no pytest module installed on the cmslpc host machines. To create a local virtual env with pytest installed, use the commands:
+To run the python unit/integration tests, you will need to have pytest installed. Currently the version of pytest in CMSSW_12_1_0_pre3 does not work and there is no pytest module installed on the cmslpc host machines. To create a local virtual environment with pytest installed, use the commands:
 
 ```bash
 cd <path to lpc-scripts>/lpc-scripts
@@ -71,6 +71,8 @@ test/test.py s......                                                            
 
 ====================================================== 6 passed, 1 skipped in 5.74s ======================================================
 ```
+
+For additional output you can use the options `--verbosity=<VERBOSITY>`. By default all of the output from the various tests is captured by pytest. To see the output of successful tests use the option `-rP`. To see the output of failed tests (default) use the option `-rx`.
 
 Once you're finished, you can exit the virtual environment by using the command:
 ```bash

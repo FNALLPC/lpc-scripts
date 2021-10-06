@@ -3,17 +3,18 @@
 from __future__ import absolute_import
 from io import StringIO
 import os
-import pytest
-import shlex
-import subprocess
 import sys
 sys.path.insert(1, os.path.dirname(os.path.realpath(__file__))+'/..')
+import pytest
 import GetPythonVersions
 import GetSiteInfo
 import RecursiveFileList
 import toolgenie
 
 class Capturing(list):
+    """A context manager which captures stdout and returns it as a list of strings, one for each line.
+    This class is based on https://stackoverflow.com/questions/16571150/how-to-capture-stdout-output-from-a-python-function-call
+    """
     def __enter__(self):
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
@@ -38,9 +39,9 @@ class TestGetPythonVersions:
 
     def test_get_python_versions(self):
         with Capturing() as output:
-             GetPythonVersions.get_python_versions(agrep = "x86_64-centos7-gcc485", pgrep = "3.6.8", shorten = True)
+            GetPythonVersions.get_python_versions(agrep = "x86_64-centos7-gcc485", pgrep = "3.6.8", shorten = True)
         print(output)
-        assert output == self._known_output        
+        assert output == self._known_output
 
 class TestGetSiteInfo:
     def test_get_site_info(self):
@@ -58,6 +59,9 @@ class TestGetSiteInfo:
                                              env=True,
                                              quiet=False,
                                              shell = ['rse','pfn'])
+        assert site.name == site.alias == site.rse == "T3_US_FNALLPC"
+        assert len(site.endpoints) == 3
+        assert site.pfn == "gsiftp://cmseos-gridftp.fnal.gov:2811/eos/uscms"
         assert "rse=T3_US_FNALLPC" in output
         assert "pfn=gsiftp://cmseos-gridftp.fnal.gov:2811/eos/uscms" in output
 
@@ -111,9 +115,12 @@ class TestToolgenie:
 
     def test_toolgenie(self):
         with Capturing() as output:
-             tools = toolgenie.toolgenie(architecture = "slc7_amd64_gcc900",
-                                         cmssw = "CMSSW_12_0_1",
-                                         tool = "boost",
-                                         quiet = True)
-        print(output)
+            tools = toolgenie.toolgenie(architecture = "slc7_amd64_gcc900",
+                                        cmssw = "CMSSW_12_0_1",
+                                        tool = "boost",
+                                        quiet = True)
+        print(tools)
+        assert tools[0].Architectures == ["slc7_amd64_gcc900"]
+        assert tools[0].Releases == ['CMSSW_12_0_1']
+        assert tools[0].Name == 'boost'
         assert output == self._known_output
