@@ -15,15 +15,17 @@ Much of the code contained here relies on certain mounts (i.e. cvmfs), specific 
 
 The [Bats](https://bats-core.readthedocs.io/en/stable/) tests are currently setup to test only the `eosdu` executable. Every effort has been made to test all of the options. Even so, full coverage is not guaranteed. These tests rely on the eos path `/store/user/cmsdas/test/` being stable.
 
+First the Bats software needs to be setup. This is a process that only needs to happen once. To setup the software run the following command from within the `<path to lpc-scripts>/lpc-scripts` directory:
 ```bash
-cd <path to lpc-scripts>/lpc-scripts
-git clone https://github.com/bats-core/bats-core.git test/bats
-git clone https://github.com/bats-core/bats-support.git test/test_helper/bats-support
-git clone https://github.com/bats-core/bats-assert.git test/test_helper/bats-assert
-./test/bats/bin/bats test/test.bats
+./test/bats_control.sh -s
 ```
 
-Expected output:
+Once the software is setup, you can run the tests using:
+```bash
+./test/bats_control.sh
+```
+
+If everything is working correctly, the output will be:
 ```
  ✓ Check eosdu basic
  ✓ Check eosdu usage message
@@ -41,6 +43,11 @@ Expected output:
  ✓ Check eosdu human readable file count grep
 
 14 tests, 0 failures
+```
+
+To remove the Bats software run:
+```bash
+./test/bats_control.sh -r
 ```
 
 #### Pytest for Python modules
