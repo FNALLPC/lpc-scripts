@@ -42,3 +42,39 @@ Expected output:
 
 14 tests, 0 failures
 ```
+
+#### Pytest for Python modules
+
+To run the python unit/integration tests, you will need to have pytest installed. Currently the version of pytest in CMSSW_12_1_0_pre3 does not work and there is no pytest module installed on the cmslpc host machines. To create a local virtual env with pytest installed, use the commands:
+
+```bash
+cd <path to lpc-scripts>/lpc-scripts
+python3 -m venv venv
+source venv/bin/activate
+pip install pytest six
+```
+
+You can then run the tests by using the command:
+
+```bash
+pytest test/test.py
+```
+
+You should see an output similar to:
+```
+========================================================== test session starts ===========================================================
+platform linux -- Python 3.6.8, pytest-6.2.5, py-1.10.0, pluggy-1.0.0
+rootdir: <path to lpc-scripts>
+collected 7 items
+
+test/test.py s......                                                                                                               [100%]
+
+====================================================== 6 passed, 1 skipped in 5.74s ======================================================
+```
+
+Once you're finished, you can exit the virtual environment by using the command:
+```bash
+deactivate
+```
+
+The virtual environment can be removed by simply removing the `venv` directory.
