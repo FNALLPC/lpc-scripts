@@ -75,7 +75,7 @@ def filter_on_branch_name(line):
     These entries tend to not have actual folders on CVMFS
     Returns true if a line containing this pattern is found
     """
-    return re.search("^(CMSSW)_[0-9]*_[0-9]*_[^0-9].*(?m)",line)
+    return re.search("(?m:^(CMSSW)_[0-9]*_[0-9]*_[^0-9].*)",line)
 
 def filter_on_label(release_map, labels):
     """Filter the list of Releases based on the chosen labels.
@@ -407,7 +407,7 @@ Examples of how to run:
 =======================
 python toolgenie.py --help
 python toolgenie.py
-python toolgenie.py slc7_.* 1 1
+python toolgenie.py r:slc7_.* 1 1
 """,
                                      epilog="",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
