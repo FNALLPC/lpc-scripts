@@ -9,7 +9,8 @@ python3 RecursiveFileList.py <absolute path>
 It can also be imported by another python program and used like:
 
 #import RecursiveFileList
-RecursiveFileList.map_dir("<absolute path>")
+RecursiveFileList.map_dir("<absolute path to enclosing folder>", "<subfolder>")
+RecursiveFileList.map_dir("", "<absolute path to folder>")
 RecursiveFileList.get_file_list("<absolute path>")
 RecursiveFileList.get_dir_list("<absolute path>")
 
