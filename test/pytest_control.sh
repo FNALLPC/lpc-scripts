@@ -1,20 +1,24 @@
 #!/bin/bash
 
-die() {
+error_pytest_control() {
     echo "ERROR: $*. Aborting." >&2
-    exit 1
+    return 1
 }
 
-setup() {
+setup_pytest_venv() {
     python3 -m venv test/venv
+    echo "Starting the virtual env now ..."
     # shellcheck disable=SC1091
     source test/venv/bin/activate
+    echo -e "In the future:\n" \
+            "\t1. Enter the virtual environment using 'source test/venv/bin/activate'\n"\
+            "\t2. To leave the virtual environment use the command 'deactivate'\n"
     pip install pytest six
 }
 
-teardown() {
+teardown_pytest_venv() {
     if [[ "$VIRTUAL_ENV" != "" ]]; then
-        die "You must call 'deactivate' before removing the virtual environment"
+        deactivate
     fi
     if [[ "$VIRTUAL_ENV" == "" ]]; then
         rm -rf test/venv
@@ -35,45 +39,43 @@ OPTIONS:
 EOF
 }
 
+OPTIND=1
 OPTIONS=""
 REMOVE="False"
 SETUP="False"
 
 #check arguments
-while getopts "hors" option; do
+while getopts "ho:rs" option; do
     case "${option}" in
         o)  OPTIONS=${OPTARG}
             ;;
-        r)  [[ "${SETUP}" == "True" ]] && die "Cannot specify option -r after specifying option -s"
+        r)  [[ "${SETUP}" == "True" ]] && error_pytest_control "Cannot specify option -r after specifying option -s"
             REMOVE="True"
             ;;
-        s)  [[ "${REMOVE}" == "True" ]] && die "Cannot specify option -s after specifying option -r"
+        s)  [[ "${REMOVE}" == "True" ]] && error_pytest_control "Cannot specify option -s after specifying option -r"
             SETUP="True"
             ;;
         h)  usage
-            exit 2
+            return 2
             ;;
         \?) echo "Invalid option: -$OPTARG" >&2
             usage
-            exit 3
+            return 3
             ;;
         :)  echo "Option -$OPTARG requires an argument." >&2
-            exit 4
+            return 4
             ;;
     esac
 done
 
 if [[ "${SETUP}" == "True" ]]; then
-    setup
-    if ! return 0 2>/dev/null; then
-        echo -e "\nRemember to start the virtual environment before running any tests."
-        echo "  source test/venv/bin/activate"
-    fi
+    setup_pytest_venv
 elif [[ "${REMOVE}" == "True" ]]; then
-    teardown
+    teardown_pytest_venv
 else
     if [[ "$VIRTUAL_ENV" == "" ]]; then
-        die "The Python virtual environment is not setup"
+        error_pytest_control "The Python virtual environment is not setup"
+    else
+        pytest test/test.py "${OPTIONS}"
     fi
-    pytest test/test.py "${OPTIONS}"
 fi
