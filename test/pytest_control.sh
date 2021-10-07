@@ -18,7 +18,7 @@ setup_pytest_venv() {
 }
 
 run_pytest() {
-    if [[ -f "test/venv/bin/activate" ]]; then
+    if [[ -f "test/venv/bin/activate" ]] && [[ "$VIRTUAL_ENV" == "" ]]; then
         # shellcheck disable=SC1091
         source test/venv/bin/activate
     fi
@@ -29,7 +29,7 @@ run_pytest() {
             pytest test/test.py "${OPTIONS_ARRAY[@]}"
         else
             error_pytest_control "Unable to locate the file containing the tests to run ('test/test.py')." \
-                                 "Make sure the virtual environment was setup from within the lpc-scrips directory"
+                                 "Make sure the virtual environment was setup from within the lpc-scripts directory"
         fi
     else
         error_pytest_control "Unable to start the virtual environment containing pytest." \
@@ -50,7 +50,7 @@ cat <<EOF
 usage: pytest_control.sh [options]
 
 This script sets up or tears down (removes) the software needed to run the pytest unit/integration tests
-on the python modules in FNALLPC/lpc-scrips.
+on the python modules in FNALLPC/lpc-scripts.
 
 OPTIONS:
     -o      Run with additional pytest options
