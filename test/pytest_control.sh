@@ -1,27 +1,47 @@
 #!/bin/bash
 
 error_pytest_control() {
-    echo "ERROR: $*. Aborting." >&2
+    echo -e "ERROR: $*. Aborting." >&2
     return 1
 }
 
 setup_pytest_venv() {
     python3 -m venv test/venv
-    echo "Starting the virtual env now ..."
-    # shellcheck disable=SC1091
-    source test/venv/bin/activate
-    echo -e "In the future:\n" \
-            "\t1. Enter the virtual environment using 'source test/venv/bin/activate'\n"\
-            "\t2. To leave the virtual environment use the command 'deactivate'\n"
-    pip install pytest six
+    if [[ -f "test/venv/bin/activate" ]]; then
+        echo "Starting the virtual environment now ..."
+        # shellcheck disable=SC1091
+        source test/venv/bin/activate
+        pip install pytest six
+    else
+        error_pytest_control "The directory '${PWD}/test/venv' does not exist. Cannot enter the virtual environment"
+    fi
+}
+
+run_pytest() {
+    if [[ -f "test/venv/bin/activate" ]]; then
+        # shellcheck disable=SC1091
+        source test/venv/bin/activate
+    fi
+
+    if [[ "$VIRTUAL_ENV" != "" ]]; then
+        if [[ -f "test/test.py" ]]; then
+            IFS=' '; read -r -a OPTIONS_ARRAY <<<"${1}"
+            pytest test/test.py "${OPTIONS_ARRAY[@]}"
+        else
+            error_pytest_control "Unable to locate the file containing the tests to run ('test/test.py')." \
+                                 "Make sure the virtual environment was setup from within the lpc-scrips directory"
+        fi
+    else
+        error_pytest_control "Unable to start the virtual environment containing pytest." \
+                             "Make sure you have run './test/pytest_control.sh -s'"
+    fi
 }
 
 teardown_pytest_venv() {
-    if [[ "$VIRTUAL_ENV" != "" ]]; then
-        deactivate
-    fi
-    if [[ "$VIRTUAL_ENV" == "" ]]; then
+    if [[ -d "test/venv" ]]; then
         rm -rf test/venv
+    else
+        error_pytest_control "The directory '${PWD}/test/venv' does not exist. Cannot remove the virtual environment"
     fi
 }
 
@@ -56,14 +76,14 @@ while getopts "ho:rs" option; do
             SETUP="True"
             ;;
         h)  usage
-            return 2
+            exit 2
             ;;
         \?) echo "Invalid option: -$OPTARG" >&2
             usage
-            return 3
+            exit 3
             ;;
         :)  echo "Option -$OPTARG requires an argument." >&2
-            return 4
+            exit 4
             ;;
     esac
 done
@@ -73,9 +93,5 @@ if [[ "${SETUP}" == "True" ]]; then
 elif [[ "${REMOVE}" == "True" ]]; then
     teardown_pytest_venv
 else
-    if [[ "$VIRTUAL_ENV" == "" ]]; then
-        error_pytest_control "The Python virtual environment is not setup"
-    else
-        pytest test/test.py "${OPTIONS}"
-    fi
+    run_pytest "${OPTIONS}"
 fi
