@@ -24,11 +24,12 @@ run_pytest() {
     fi
 
     if [[ "$VIRTUAL_ENV" != "" ]]; then
-        if [[ -f "test/test.py" ]]; then
+        if [[ -f "test/test.py" ]] && [[ -f "test/test_copyfiles.py" ]]; then
             IFS=' '; read -r -a OPTIONS_ARRAY <<<"${1}"
-            pytest test/test.py "${OPTIONS_ARRAY[@]}"
+            pytest test/test.py test/test_copyfiles.py "${OPTIONS_ARRAY[@]}"
         else
-            error_pytest_control "Unable to locate the file containing the tests to run ('test/test.py')." \
+            error_pytest_control "Unable to locate the files containing the tests to run " \
+                                 "('test/test.py | test/test_copyfiles.py')." \
                                  "Make sure the virtual environment was setup from within the lpc-scripts directory"
         fi
     else

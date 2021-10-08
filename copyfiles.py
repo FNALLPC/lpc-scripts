@@ -45,7 +45,7 @@ class Command:
         """An alias to returning the just the executable and argument portion of the command,
         space separated.
         """
-        return self.get_command(end = -3)
+        return self.get_command(end = -2)
 
     def get_start_location(self):
         """An alias to returning just the formated start site location."""
@@ -74,10 +74,10 @@ class GfalCommand(Command):
         """
         if site.alias == 'local':
             return "file:////"
-        elif site.gsiftp_endpoint != 'None':
-            return "gsiftp://" + site.gsiftp_endpoint + "/store/user/" + site.username + "/"
-        elif site.xrootd_endpoint != 'None':
-            return "root://" + site.xrootd_endpoint + "//store/user/" + site.username + "/"
+        elif GetSiteInfo.EndpointType.GSIFTP in site.endpoints:
+            return max(site.endpoints[GetSiteInfo.EndpointType.GSIFTP], key=len) + "/store/user/" + site.username + "/"
+        elif GetSiteInfo.EndpointType.XROOTD in site.endpoints:
+            return max(site.endpoints[GetSiteInfo.EndpointType.XROOTD], key=len) + "/store/user/" + site.username + "/"
         else:
             print(site)
             raise RuntimeError(f"The site {site.alias} must be 'local' or have either a gsiftp or xrootd endpoint.")
@@ -95,10 +95,10 @@ class GfalCommand(Command):
             self.command_pieces.append(self.additional_arguments)
         self.command_pieces.append((self.start_site_prefix +
                                     (self.override_path if self.override_path != "" else self.start_site.path) +
-                                    "/") if self.start_site is not None else "")
+                                    "") if self.start_site is not None else "")
         self.command_pieces.append((self.end_site_prefix +
                                     (self.override_path if self.override_path != "" else self.end_site.path) +
-                                    "/") if self.end_site is not None else "")
+                                    "") if self.end_site is not None else "")
 
 class XRootDCommand(Command):
     """Creates and stores a GFAL based command"""
@@ -108,8 +108,8 @@ class XRootDCommand(Command):
         self.action = action
         self.subaction = subaction
         self.quiet = quiet
-        self.start_site_prefix = self.get_site_prefix(self.start_site)
-        self.end_site_prefix = self.get_site_prefix(self.end_site)
+        self.start_site_prefix = self.get_site_prefix(self.start_site) if self.start_site is not None else ""
+        self.end_site_prefix = self.get_site_prefix(self.end_site) if self.end_site is not None else ""
         self.build_command()
 
     def get_site_prefix(self, site):
@@ -118,11 +118,14 @@ class XRootDCommand(Command):
         """
         if site.alias == 'local':
             return ""
-        elif site.xrootd_endpoint != 'None':
+        elif GetSiteInfo.EndpointType.XROOTD in site.endpoints:
             if self.subaction != "":
-                return "root://" + site.xrootd_endpoint + "/ " + self.subaction + "/store/user/" + site.username + "/"
+                xrootd_endpoint = max(site.endpoints[GetSiteInfo.EndpointType.XROOTD], key=len)
+                split = xrootd_endpoint.find("/", len("root://")) + 1
+                return xrootd_endpoint[:split] + " " + self.subaction + " " + \
+                       xrootd_endpoint[split:] + "/store/user/" + site.username + "/"
             else:
-                return "root://" + site.xrootd_endpoint + "//store/user/" + site.username + "/"
+                return max(site.endpoints[GetSiteInfo.EndpointType.XROOTD], key=len) + "/store/user/" + site.username + "/"
         else:
             print(site)
             raise RuntimeError(f"The site {site.alias} must be 'local' or have an xrootd endpoint.")
@@ -138,10 +141,10 @@ class XRootDCommand(Command):
             self.command_pieces.append(self.additional_arguments)
         self.command_pieces.append((self.start_site_prefix +
                                     (self.override_path if self.override_path != "" else self.start_site.path) +
-                                    "/") if self.start_site is not None else "")
+                                    "") if self.start_site is not None else "")
         self.command_pieces.append((self.end_site_prefix +
                                     (self.override_path if self.override_path != "" else self.end_site.path) +
-                                    "/") if self.end_site is not None else "")
+                                    "") if self.end_site is not None else "")
 
 class Error(EnvironmentError):
     """EnvironmentError is the base class for errors that come from outside of Python (the operating system,
@@ -167,7 +170,7 @@ class Location(GetSiteInfo.Site):
         print("\tusername:", self.username)
         print("\tPath:", self.path)
 
-def run_checks(recursive, depth, start_path, end_path):
+def run_checks(recursive, depth, start_path, end_path, both_local):
     """Does some basic sanity checks before proceeding with the rest of the module.
     This tries to head off problems that might occur later on.
     The checks include:
@@ -177,28 +180,32 @@ def run_checks(recursive, depth, start_path, end_path):
     """
     print("Running checks on options ...")
 
+    # Set the depth to some rediculously high value if there is recursion involved
     if recursive :
         print("\trun_checks::recursive option chosen so depth set to large value (9999)")
         depth = 9999
 
-    with open(os.devnull, 'wb') as devnull:
-        returncode = 0
-        with subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'),
-                              stdout=devnull,
-                              stderr=subprocess.STDOUT) as process:
-            returncode = process.wait()
-        if returncode != 0:
-            print("\tWARNING::You must have a valid proxy for this script to work.\nRunning \"voms-proxy-init -voms cms\"...\n")
-            subprocess.call("voms-proxy-init -voms cms -valid 192:00", shell=True)
+    # Check for a voms-proxy if a remote protocol will be involved
+    if not both_local:
+        with open(os.devnull, 'wb') as devnull:
+            returncode = 0
             with subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'),
                                   stdout=devnull,
                                   stderr=subprocess.STDOUT) as process:
                 returncode = process.wait()
-            if returncode != 0 :
-                print("\tERROR::Sorry, but I still could not find your proxy.\n"
-                      "Without a valid proxy, this program will fail spectacularly.\n"
-                      "The program will now exit.")
-                sys.exit(1)
+            if returncode != 0:
+                print("\tWARNING::You must have a valid proxy for this script to work.\n"
+                      "Running \"voms-proxy-init -voms cms\"...\n")
+                subprocess.call("voms-proxy-init -voms cms -valid 192:00", shell=True)
+                with subprocess.Popen(shlex.split('voms-proxy-info -exists -valid 0:10'),
+                                      stdout=devnull,
+                                      stderr=subprocess.STDOUT) as process:
+                    returncode = process.wait()
+                if returncode != 0 :
+                    print("\tERROR::Sorry, but I still could not find your proxy.\n"
+                          "Without a valid proxy, this program will fail spectacularly.\n"
+                          "The program will now exit.")
+                    sys.exit(1)
 
     if start_path=="./":
         print("\trun_checks::start_path chosen as the current working directory ("+str(os.environ['PWD'])+")")
@@ -224,14 +231,14 @@ def init_commands(start_site, end_site, arguments = argparse.Namespace()):
                               start_site = start_site,
                               end_site = end_site,
                               verbose = arguments.verbose,
-                              additional_arguments = arguments.additional)
+                              additional_arguments = arguments.additional_arguments)
     elif arguments.protocol == "xrootd":
         command = XRootDCommand(action = "cp",
                                 quiet = arguments.quiet,
                                 start_site = start_site,
                                 end_site = end_site,
                                 verbose = arguments.verbose,
-                                additional_arguments = arguments.additional)
+                                additional_arguments = arguments.additional_arguments)
     else:
         raise RuntimeError("copyfiles::init_commands() could not figure out how to format the copy command.")
 
@@ -246,15 +253,12 @@ def init_commands(start_site, end_site, arguments = argparse.Namespace()):
 
     return (copy_command, start_location, end_location)
 
-
 def make_directory(end_site, path, protocol, debug = False):
     """This function will create a directory on a remote file system (the endpoint) assuming it is missing."""
-    made_dir = False
-
     if end_site.alias == 'local' :
-        if not os.path.exists(path) :
+        if not os.path.exists(path):
             os.makedirs(path)
-            made_dir = True
+        return os.path.exists(path)
     else:
         ls_command = None
         if protocol == "gfal":
@@ -262,51 +266,72 @@ def make_directory(end_site, path, protocol, debug = False):
                                      verbose = True,
                                      end_site = end_site,
                                      override_path = path)
+            mkdir_command = GfalCommand(action = "mkdir",
+                                        end_site = end_site,
+                                        override_path = path)
         elif protocol == "xrootd":
             ls_command = XRootDCommand(action = "fs",
                                        subaction = "ls",
                                        end_site = end_site,
                                        override_path = path)
-
-        if os.system(ls_command.get_full_command()) != 0 and protocol == "gfal":
-            mkdir_command = GfalCommand(action = "mkdir",
-                                        end_site = end_site,
-                                        override_path = path)
-            cmd = mkdir_command.get_full_command()
-            print("\tcmd:", cmd)
-            os.system(cmd)
-            made_dir = True
-        elif os.system(ls_command.get_full_command()) != 0 and protocol == "xrootd":
             mkdir_command = XRootDCommand(action = "fs",
                                           subaction = "mkdir",
                                           end_site = end_site,
                                           override_path = path)
-            cmd = mkdir_command.get_full_command()
-            print("\tcmd:", cmd)
-            os.system(cmd)
-            made_dir = True
 
-    if not made_dir:
-        print("make_directory:")
-        print("\tThere was a problem making the directory", path)
-        print("\tEither the destination directory already exists or the make_directory command is broken")
-    elif debug:
-        print("make_directory:")
-        print("\tstatus: success")
-        print("\tdirectory:", path)
-        print("\tprotocol:", protocol)
+        returncode = 0
+        output = ""
+        with subprocess.Popen(ls_command.get_full_command(),
+                              shell = True,
+                              stdout = subprocess.PIPE,
+                              stderr = subprocess.STDOUT) as process:
+            output = process.communicate()[0]
+            returncode = process.returncode
+
+        if end_site.path == path or end_site.path == path[1:]:
+            if debug:
+                print("make_directory:")
+                print("\tstatus: bypass")
+                print("\tend_site.path:", end_site.path)
+                print("\tdirectory:", path)
+                print("\tprotocol:", protocol)
+            return True
+        elif returncode != 0:
+            with subprocess.Popen(mkdir_command.get_full_command(),
+                                  shell = True,
+                                  stdout = subprocess.PIPE,
+                                  stderr = subprocess.STDOUT) as process:
+                output = process.communicate()[0]
+                if debug:
+                    print("make_directory:")
+                    print("\tstatus: success")
+                    print("\tdirectory:", path)
+                    print("\tprotocol:", protocol)
+                return True
+        else:
+            print("make_directory:")
+            print("\tThere was a problem making the directory", path)
+            print("\tEither the destination directory already exists or the make_directory command is broken")
+            print(output)
+            return False
 
 def get_list_of_files(protocol, start_site, sample, path, debug = False):
     """This function will return a list of file from the start site."""
     files_unfiltered = []
+
+    # Handle the local case
     if start_site.alias == 'local':
+        # Handle the local single file case
         if os.path.isfile(path):
             return [os.path.basename(path)]
+        # Handle the local mmulti-file case
         else:
             files_unfiltered = os.listdir(path)
         if debug:
             print("get_list_of_files:")
             print("\tList of files (unfiltered):", files_unfiltered)
+    elif not remote_is_dir(start_site, path):
+        files_unfiltered = [path]
     else:
         if protocol == "gfal":
             ls_command = GfalCommand(action = "ls",
@@ -323,8 +348,8 @@ def get_list_of_files(protocol, start_site, sample, path, debug = False):
             print("\tCommand: ", cmd)
 
         # pylint: disable=consider-using-with
-        proc = subprocess.Popen(cmd, shell = True, stdout = subprocess.PIPE).communicate()[0]
-        files_unfiltered = proc.splitlines()
+        output, _ = subprocess.Popen(cmd, shell = True, stdout = subprocess.PIPE).communicate()
+        files_unfiltered = output.decode('utf-8').splitlines()
         files_unfiltered = [x.strip(' ') for x in files_unfiltered]
         files_unfiltered = [x.strip('\n') for x in files_unfiltered]
     files_unfiltered = [x.replace("//", "/") for x in files_unfiltered]
@@ -371,18 +396,28 @@ def do_diff(files, protocol, end_site, sample, dst, debug):
     if end_site.alias == 'local' and os.environ.get('HOSTNAME',"not found").find("fnal.gov") > 0 :
         files1 = os.listdir(dst)
     else:
-        get_list_of_files(protocol, end_site, sample, dst, debug)
-    files_diff = [f for f in files if f not in files1 or os.path.isdir(dst + "/" + f)]
+        files1 = get_list_of_files(protocol, end_site, sample, dst, debug)
+    files_diff = [f for f in files if f not in files1 or \
+                  (os.path.isdir(dst+"/"+f) if end_site.alias=='local' else remote_is_dir(end_site, dst + "/" + f))]
     print("Adding an additional " + str(len(files_diff)) + " files/folders")
     return files_diff
 
-def remote_is_dir(start_site,srcname):
+def remote_is_dir(site, srcname):
     """Return True if the remote path is a directory and False otherwise."""
     returncode = 0
-    cmd = "xrdfs root://" + start_site.xrootd_endpoint + "/ stat -q IsDir " + srcname
-    with subprocess.Popen(cmd, shell = True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT) as process:
+    #cmd = "xrdfs root://" + site.xrootd_endpoint + "/ stat -q IsDir " + srcname
+    isdir_command = XRootDCommand(action = "fs",
+                                  subaction = "stat -q IsDir",
+                                  start_site = site,
+                                  override_path = srcname)
+
+    with subprocess.Popen(isdir_command.get_full_command(),
+                          shell = True,
+                          stdout = subprocess.PIPE,
+                          stderr = subprocess.STDOUT) as process:
         _ = process.communicate()[0]
         returncode = process.returncode
+
     return returncode == 0
 
 # pylint: disable=too-many-locals
@@ -402,7 +437,9 @@ def copytree(start_site, src, end_site, dst, current_depth, symlinks = False, ig
         return
 
     if not arguments.dry_run:
-        make_directory(end_site, dst, arguments.protocol, arguments.debug)
+        made_dir = make_directory(end_site, dst, arguments.protocol, arguments.debug)
+        if not made_dir:
+            raise Exception("ERROR::copytree::Unable to make the destination directory.")
 
     files = get_list_of_files(arguments.protocol, start_site, arguments.sample, src, arguments.debug)
 
@@ -422,14 +459,22 @@ def copytree(start_site, src, end_site, dst, current_depth, symlinks = False, ig
     for file in files:
         if file in ignored_names:
             continue
-        srcname = os.path.join(src, file)
+
+        srcname = os.path.join(src, file) \
+                  if not (os.path.isfile(src) or (start_site.alias != 'local' \
+                                                  and not remote_is_dir(start_site, src))) else src
         dstname = os.path.join(dst, file)
+        if arguments.debug:
+            print("copytree:")
+            print("\tsrcname:", srcname)
+            print("\tdstname:", dstname)
 
         try:
             if symlinks and os.path.islink(srcname):
                 linkto = os.readlink(srcname)
                 os.symlink(linkto, dstname)
-            elif os.path.isdir(srcname) or (arguments.protocol == "xrootd" and remote_is_dir(start_site, srcname)):
+            elif os.path.isdir(srcname) or \
+                (arguments.protocol == "xrootd" and start_site.alias != 'local' and remote_is_dir(start_site, srcname)):
                 copytree(start_site,
                          srcname,
                          end_site,
@@ -444,8 +489,15 @@ def copytree(start_site, src, end_site, dst, current_depth, symlinks = False, ig
                     srel = ""
                 copy_command, start_location, end_location = init_commands(start_site, end_site, arguments)
                 print("Copying file " + file + " from " + srel)
-                command = copy_command + " " + start_location + srel + file + " " + end_location + srel + file
-                print(command)
+                if start_site.alias != 'local' and start_site.alias != 'local' and not remote_is_dir(start_site, src):
+                    command = copy_command + " " + start_location + " " + end_location
+                elif start_site.alias != 'local':
+                    command = copy_command + " " + start_location + srel + file + " " + end_location + srel + file
+                elif os.path.isfile(start_location):
+                    command = copy_command + " " + start_location + " " + end_location + srel + file
+                else:
+                    command = copy_command + " " + start_location + srel + file + " " + end_location + srel + file
+                print("\tcopy command:", command)
                 if not arguments.dry_run:
                     os.system(command)
                 print("")
@@ -466,39 +518,62 @@ def local2local(start_site, end_site, recursive, delete, additional):
     """
     command = 'mv' if delete else 'cp'
     if not delete and recursive:
-        command += ' -R'
+        command += ' -r'
     command = command + ' ' + additional + ' ' + start_site.path + ' ' + end_site.path
     print(command)
     os.system(command)
+
+def built_in_recursion(start_site, end_site, arguments):
+    """Useful for protocols like gfal-copy, which  has its own working recursive option"""
+
+    # Get the copy commands and locations
+    copy_command, start_location, end_location = init_commands(start_site, end_site, arguments)
+
+    # Build the command
+    command = copy_command+" "+start_location+" "+end_location
+
+    # Check that the destination folder exits
+    if not arguments.dry_run:
+        made_dir = make_directory(end_site, end_site.path, arguments.protocol, arguments.debug)
+        if not made_dir:
+            raise Exception("ERROR::built_in_recursion::Unable to make the destination directory.")
+
+    # Run the command and check the output codes
+    with subprocess.Popen(command, shell = True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT) as process:
+        output = process.communicate()[0]
+        print(command)
+        print(output)
+        if process.returncode == 0:
+            return True
+        else:
+            raise Exception("ERROR::built_in_recursion() Something went wrong with the copy command.")
 
 def main(arguments = argparse.Namespace()):
     """The main function coordinating the overal logic of which protocols to use, how to get the site/server
     information, and which copy command to use.
     """
+    arguments.both_local = bool(arguments.start_server=='local' and arguments.end_server=='local')
     arguments.recursive, arguments.depth, arguments.start_path, arguments.end_path = run_checks(arguments.recursive,
                                                                                                 arguments.depth,
                                                                                                 arguments.start_path,
-                                                                                                arguments.end_path)
+                                                                                                arguments.end_path,
+                                                                                                arguments.both_local)
 
     #get the site information
-    start_site = Location(arguments.start_server,
-                          arguments.start_user,
-                          arguments.start_path + "/" if arguments.start_server != 'local' else arguments.start_path)
+    start_site = Location(arguments.start_server, arguments.start_user, arguments.start_path)
     if start_site.alias != 'local':
-        GetSiteInfo.get_site_info(site = start_site, debug = arguments.debug, quiet = True)
-    end_site = Location(arguments.end_server,
-                        arguments.end_user,
-                        arguments.end_path + "/" if arguments.end_server != 'local' else arguments.end_path)
+        GetSiteInfo.get_site_info(site = start_site, debug = arguments.debug, quiet = True, print_json = False)
+    end_site = Location(arguments.end_server, arguments.end_user, arguments.end_path)
     if end_site.alias != 'local':
         GetSiteInfo.get_site_info(site = end_site, debug = arguments.debug, quiet = True)
 
     #local to local copies can use POSIX commands
     if start_site.alias == 'local' and end_site.alias == 'local':
-        local2local(start_site, end_site, arguments.recursive, arguments.delete, arguments.additional)
+        local2local(start_site, end_site, arguments.recursive, arguments.delete, arguments.additional_arguments)
         return
 
     #gfal-copy has its own working recursive option, so we can take more advantage of that
-    if arguments.protocol=='gfal':
+    if arguments.protocol == 'gfal':
         copy_command, start_location, end_location = init_commands(start_site, end_site, arguments)
         if arguments.from_file != "":
             command = copy_command + " --from-file " + arguments.from_file + " " + end_location
@@ -514,13 +589,13 @@ def main(arguments = argparse.Namespace()):
         if start_site.alias == 'local':
             top_src = start_site.path
         else:
-            top_src = "/store/user/" + start_site.username + "/" + start_site.path
+            top_src = "/" + start_site.path
 
         top_dst = ""
         if end_site.alias == 'local':
             top_dst = end_site.path
         else:
-            top_dst = "/store/user/" + end_site.username + "/" + end_site.path
+            top_dst = "/" + end_site.path
 
         if arguments.debug:
             print("main:")
@@ -544,9 +619,9 @@ if __name__ == '__main__':
 Transfer files from one location on the OSG to another.
 Still need to implement the delete functionality for remote sites.""",
                                      epilog = """
-#############
-# Use Cases #
-#############
+#####################
+# Example Use Cases #
+#####################
 Single file local to remote (gfal)
     python copyfiles.py local <absolute path>/<filename> T3_US_FNALLPC <path after username> -p gfal
 Single file remote to local (gfal)
@@ -564,6 +639,34 @@ Directory remote to local transfers (gfal - needs to be recursive to make folder
 Directory remote to local transfers (xrootd - can be made recursive)
     python copyfiles.py T3_US_FNALLPC <path after username> local <absolute path> -p xrootd --depth <number of levels down>
 
+####################
+# Tested Scenarios #
+####################
+# pylint: disable=line-too-long
+#START      END       PROTOCOL    Note                   RECURSIVE   WORKING?  NOTES
+#=====      ===       ========    ===========            =========   ========  =====
+#local      local     cp          Single File            No          Yes       Destination directory must exist
+#local      local     cp          Entire Folder          Yes         Yes       Does not work with a single file for the start
+#local      local     cp          Contents Folder        Yes         Yes       Needs the quotes around the wildcard
+#remote     local     xrootd      Single File            No          Yes
+#remote     local     xrootd      Contents Folder        No          Yes
+#remote     local     xrootd      Contents Folder        Yes         Yes
+#remote     local     xrootd      Contents Folder (diff) Yes         Yes
+#remote     local     gfal        Single File            No          Yes       Destination directory must exist
+#remote     local     gfal        Contents Folder        Yes         Yes
+#local      remote    xrootd      Single File            No          Yes
+#local      remote    xrootd      Contents Folder        No          Yes
+#local      remote    xrootd      Contents Folder        Yes         Yes
+#local      remote    xrootd      Contents Folder (diff) Yes         Yes
+#local      remote    gfal        Single File            No.         Yes
+#local      remote    gfal        Contents Folder        Yes         Yes
+#remote     remote    xrootd      Single File            No          Yes
+#remote     remote    xrootd      Contents Folder        No          Yes
+#remote     remote    xrootd      Contents Folder        Yes         Yes
+#remote     remote    xrootd      Contents Folder (diff) Yes         Yes
+#remote     remote    gfal        Single File            No          Yes
+#remote     remote    gfal        Contents Folder        Yes         Yes
+
 And those are the options available. Deal with it.""")
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("start_server",
@@ -571,49 +674,52 @@ And those are the options available. Deal with it.""")
     parser.add_argument("start_path",
                         help = "The location of the files within the users store area or the " \
                              "absolute path if the start_server is \'local\'")
-    parser.add_argument("ENDserver",
+    parser.add_argument("end_server",
                         help = "The name of the server to which the files should be copied")
     parser.add_argument("end_path",
                         help = "The location of the files within the users store area or the " \
                              "absolute path if the ENDserver is \'local\'")
     parser.add_argument("-a","--additional_arguments", type = str, default = "",
-                        help = "Any additional arguments for the protocol that are not implemented here.")
+                        help = "Any additional arguments for the protocol that are not implemented " \
+                               "here (default = %(default)s).")
     parser.add_argument("-d","--debug", action = "store_true",
-                        help = "Shows some extra information in order to debug this program.")
+                        help = "Shows some extra information in order to debug this program (default = %(default)s).")
     parser.add_argument("--depth", type = int, default = 1,
                         help = "The number of levels down to copy. 2 indicates just the files/folders " \
-                             "inside start_path. (default = 1)")
+                             "inside start_path (default = %(default)s).")
     parser.add_argument("--delete", action = "store_true",
                         help = "Will remove the original files after a successful transfer. "\
-                             "This will make the commands act more like a move than a copy.")
+                             "This will make the commands act more like a move than a copy (default = %(default)s).")
     parser.add_argument("-diff","--diff", action = "store_true",
-                        help = """Tells the program to do a diff between the two directories and only copy the missing files.
+                        help = """Tells the program to do a diff between the two directories and only
+                                copy the missing files (default = %(default)s).
                                 Only works for two local directories. 
                                 This is not implemented for the local to local or gfal transfers.""")
     parser.add_argument("--dry_run", action = "store_true",
-                        help = "Do not perform any action, just print what would be done.")
+                        help = "Do not perform any action, just print what would be done (default = %(default)s).")
     parser.add_argument("--from_file", type = str, default = "",
-                        help = "Specify the files to copy. Only implemented for gfal.")
+                        help = "Specify the files to copy. Only implemented for gfal (default = %(default)s).")
     parser.add_argument("-i","--ignore", nargs = '+', type = str, default = (),
-                        help = "Patterns of files/folders to ignore. (default = ())")
+                        help = "Patterns of files/folders to ignore (default = %(default)s).")
     parser.add_argument("-p", "--protocol", choices = ["gfal","xrootd"], default = "xrootd",
-                        help = "Gives the user the option on what protocol to use to transfer the files. (default = xrootd)")
-    group.add_argument("-q", "--quiet", action = "store_true",
-                       help = "decrease output verbosity to minimal amount")
-    parser.add_argument("-r", "--recursive", action = "store_true",
-                        help = "Recursively copies directories and files")
+                        help = "Gives the user the option on what protocol to use to transfer the " \
+                               "files (default = %(default)s).")
+    group.add_argument("-q", "--quiet", default = False, action = "store_true",
+                       help = "Decrease output verbosity to minimal amount (default = %(default)s).")
+    parser.add_argument("-r", "--recursive", default = False, action = "store_true",
+                        help = "Recursively copies directories and files (default = %(default)s).")
     parser.add_argument("-s", "--sample", nargs = '+', default = ["*"],
-                        help = "Shared portion of the name of the files to be copied. (default = [\"*\"])")
+                        help = "Shared portion of the name of the files to be copied (default = %(default)s).")
     parser.add_argument("-str","--streams", default = "15",
-                        help = "The number of transfer streams. (default = 15)")
+                        help = "The number of transfer streams (default = %(default)s).")
     parser.add_argument("-su", "--start_user", default = os.environ['USER'],
-                        help = "The username of the person transfering the files. (default = os.environ[\'USER\'])")
+                        help = "The username of the person transfering the files (default = %(default)s).")
     parser.add_argument("-eu", "--end_user", default = os.environ['USER'],
-                        help = "The username of the person transfering the files. (default = os.environ[\'USER\'])")
+                        help = "The username of the person transfering the files (default = %(default)s).")
     parser.add_argument("-t","--timeout", default = "1800",
-                        help = "Sets the send/recieve timeout for the gfal command. (default = 1800)")
-    group.add_argument("-v", "--verbose", action = "store_true",
-                       help = "Increase output verbosity of gfal-copy or xrdcp commands")
+                        help = "Sets the send/recieve timeout for the gfal command (default = %(default)s).")
+    group.add_argument("-v", "--verbose", default = False, action = "store_true",
+                       help = "Increase output verbosity of gfal-copy or xrdcp commands (default = %(default)s).")
     parser.add_argument('--version', action = 'version', version = '%(prog)s 2.0b')
     args = parser.parse_args()
 
