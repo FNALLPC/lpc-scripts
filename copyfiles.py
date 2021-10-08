@@ -288,7 +288,7 @@ def make_directory(end_site, path, protocol, debug = False):
             output = process.communicate()[0]
             returncode = process.returncode
 
-        if end_site.path == path or end_site.path == path[1:]:
+        if end_site.path in (path, path[1:]):
             if debug:
                 print("make_directory:")
                 print("\tstatus: bypass")

@@ -24,7 +24,7 @@ jobs:
         pylint --version
     - name: Analysing the code for functionality and style
       run: |
-        pylint `ls -R|grep .py$|xargs`
+        pylint `find ./ -type f -regex '.*.py$' | xargs`
 
   ShellCheck:
 
