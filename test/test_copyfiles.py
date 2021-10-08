@@ -71,12 +71,12 @@ class TestCopyfilesMethods(unittest.TestCase):
             level = root.replace(startpath, '').count(os.sep)
             indent = ' ' * 4 * (level)
             if root == startpath:
-                print('{}{}/'.format(indent, root))
+                print(f"{indent}{root}/")
             else:
-                print('{}{}/'.format(indent, os.path.basename(root)))
+                print(f"{indent}{os.path.basename(root)}/")
             subindent = ' ' * 4 * (level + 1)
             for file in files:
-                print('{}{}'.format(subindent, file))
+                print(f"{subindent}{file}")
 
     def setUp(self):
         """A method which will run some instructions before each test.
@@ -106,9 +106,9 @@ class TestCopyfilesMethods(unittest.TestCase):
         try:
             shutil.rmtree(path)
         except OSError:
-            print("\nDeletion of the directory %s failed" % path)
+            print(f"\nDeletion of the directory {path} failed")
         else:
-            print("\nSuccessfully deleted the directory %s" % path)
+            print(f"\nSuccessfully deleted the directory {path}")
 
     def local_file_exits(self, filename):
         """Check if a local path exists and if it is a regular file."""
