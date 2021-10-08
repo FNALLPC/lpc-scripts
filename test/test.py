@@ -12,12 +12,13 @@ from io import StringIO
 import os
 import sys
 sys.path.insert(1, os.path.dirname(os.path.realpath(__file__))+'/..')
+# pylint: disable=wrong-import-position
 import pytest # pylint: disable=import-error
 import GetPythonVersions
 import GetSiteInfo
 import RecursiveFileList
 import toolgenie
-
+# pylint: enable=wrong-import-position
 # pylint: disable=no-self-use
 
 class Capturing(list):
@@ -130,7 +131,7 @@ class TestRecursiveFileList:
         assert isinstance(output, list)
         assert len(output) == 62
 
-    def test_make_dir_list(self):
+    def test_get_dir_list(self):
         """Tests the get_dir_list function from within the RecursiveFileList module.
         Compares the output to some know values and checks for the appropriate output type.
         """
