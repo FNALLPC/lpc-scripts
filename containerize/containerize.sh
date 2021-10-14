@@ -6,16 +6,17 @@ clean(){
     local list_of_cache_files=("${args[@]:1}")
     echo -e "Cleaning the temporary files made while building the images ..."
     echo -e "\tRemoving the tarball ${tarball} ..."
-    rm ${tarball}
+    rm "${tarball}"
     for f in "${list_of_cache_files[@]}"; do
         echo -e "\tRemoving the cache file ${f} ..."
-        rm ${f}
+        rm "${f}"
     done
 }
 
 splitpath(){
-    local ret="-C $(dirname ${1}) $(basename ${1})"
-    echo ${ret}
+    local ret
+    ret="-C $(dirname "${1}") $(basename "${1}")"
+    echo "${ret}"
 }
 
 CWD=${PWD}
@@ -29,7 +30,7 @@ FILE="${SCRIPTPATH}/Dockerfile"
 INCLUDE=""
 JSON="${SCRIPTPATH}/cache.json"
 MAXTARSIZE=104857600
-ROOT="/scratch/containers/`whoami`/"
+ROOT="/scratch/containers/$(whoami)/"
 TAG="analysis"
 TAR=""
 USER="cmsusr"
@@ -45,7 +46,7 @@ usage(){
     echo "-C                  cleanup the temporary files when finished making the image (default = ${CLEAN})"
     echo "-d [dir]            project installation area inside the container (default = ${DIR})"
     echo "-f [file]           the Dockerfile to use to build the image (default = ${FILE})"
-    echo "-t [include]        list specific files or directories (absolute path) to include in the tarball (default = ${INCLUDE})"
+    echo "-i [include]        list specific files or directories (absolute path) to include in the tarball (default = ${INCLUDE})"
     echo "-j [json]           path to the json file containing the path to cache (default = ${JSON})"
     echo "-m [maxsize]        the maximum size (in bytes) of the tarball before returning an error (defaul = ${MAXTARSIZE})"
     echo "-r [root]           change the 'root' and 'runroot' locations for buildah (default = ${ROOT})"
@@ -61,7 +62,7 @@ usage(){
     echo "./containerize.sh -t <name>:<tag> -b docker://docker.io/aperloff/cms-cvmfs-docker:light -C -v"
     echo "podman run --rm -it <name>:<tag>"
 
-    exit ${EXIT}
+    exit "${EXIT}"
 }
 
 # process options
@@ -95,34 +96,36 @@ while getopts "b:cCd:f:i:j:m:r:t:T:u:vh" opt; do
     ;;
     h) usage 0
     ;;
+    *) usage 1
+    ;;
     esac
 done
 
 dependency_check() {
-    subuid=$(cat /etc/subuid | grep "^`id -u`:")
-    subgid=$(cat /etc/subgid | grep "^`id -u`:")
-    if [ ! command -v buildah &> /dev/null ]; then
+    subuid=$(< /etc/subuid grep "^$(id -u):")
+    subgid=$(< /etc/subgid grep "^$(id -u):")
+    if ! command -v buildah &> /dev/null; then
         EXIT=$?
         echo "Buildah could not be found!"
         exit ${EXIT}
-    elif [ ! command -v jq &> /dev/null ];then
+    elif ! command -v jq &> /dev/null; then
         EXIT=$?
         echo "jq could not be found!"
         exit ${EXIT}
     elif [[ ! -d ${ROOT} ]]; then
         EXIT=$?
         echo "The directory ${ROOT} does not exist and cannot be used for buildah's 'root' or 'runroot' directory."
-        exit ${EXIT}
+        exit "${EXIT}"
     elif [[ -z "${subuid}" ]] || [[ -z "${subgid}" ]]; then
-        echo "Unable to find a subuid or subgid for id=`id -u` in /etc/subuid and /etc/subgid."
+        echo "Unable to find a subuid or subgid for id=$(id -u) in /etc/subuid and /etc/subgid."
         echo "Contact user support or your sysadmin for further assistance."
-    elif [[ ! -d /cvmfs/cms.cern.ch ]] || [ ! cvmfs_config probe cms.cern.ch &> /dev/null ]; then
+    elif [[ ! -d /cvmfs/cms.cern.ch ]] || ! cvmfs_config probe cms.cern.ch &> /dev/null; then
         EXIT=$?
         echo "/cvmfs/cms.cern.ch must be mounted on the host to proceed."
-        exit ${EXIT}
+        exit "${EXIT}"
     fi
 
-    if [ ! command -v podman &> /dev/null ]; then
+    if ! command -v podman &> /dev/null ; then
         echo "Podman could not be found. While this is not strictly necessary, you will not be able to create a container from the resulting image."
     fi
 }
@@ -138,23 +141,23 @@ Signature: 8a477f597d28d172789f06886806bc55\n
 IFS=$'\n'
 list_of_cache_files=()
 # https://stackoverflow.com/questions/1955505/parsing-json-with-unix-tools
-for dir in $(jq -r '.Directories[] | .Path + " " + (.Cache|tostring)' ${JSON}); do
-    IFS=' '
-    dirarray=($dir)
+for dir in $(jq -r '.Directories[] | .Path + " " + (.Cache|tostring)' "${JSON}"); do
+    IFS=' '; read -r -a dirarray <<<"$dir"
     path=${dirarray[0]}
-    path=`eval echo ${path}`
+    path=$(eval echo "${path}")
     cache=${dirarray[1]}
     cache_file=${path}/CACHEDIR.TAG
     if [[ "${cache}" == "1" ]] && [[ ! -f ${cache_file} ]]; then
         echo -e "Cache ${path}"
-        echo ${CACHEDIR} > ${cache_file}
-        list_of_cache_files=(${list_of_cache_files[@]} ${cache_file})
-    elif [[ "${cache}" == "1" ]] && [[ -f ${cache_file} ]]; then
+        echo "${CACHEDIR}" > "${cache_file}"
+        list_of_cache_files=("${list_of_cache_files[@]}" "${cache_file}")
+    elif [[ "${cache}" == "1" ]] && [[ -f "${cache_file}" ]]; then
         echo -e "Already cached ${path}"
-    elif [[ "${cache}" == "0" ]] && [[ -f ${cache_file} ]]; then
+        list_of_cache_files=("${list_of_cache_files[@]}" "${cache_file}")
+    elif [[ "${cache}" == "0" ]] && [[ -f "${cache_file}" ]]; then
         echo -e "Uncache ${path}"
-        rm ${cache_file}
-    elif [[ "${cache}" == "0" ]] && [[ ! -f ${cache_file} ]]; then
+        rm "${cache_file}"
+    elif [[ "${cache}" == "0" ]] && [[ ! -f "${cache_file}" ]]; then
         echo "Already uncached ${path}"
     fi
 done
@@ -162,23 +165,24 @@ done
 # tarball of CMSSW area
 if [ -z "${TAR}" ]; then
     echo -e "Making the ${CMSSW_VERSION} tarball ... "
-    cd ${CMSSW_BASE}/..
+    cd "${CMSSW_BASE}/.."
 
     INDIVIDUAL_FILES=""
-    for f in ${INCLUDE[@]}; do
+    for f in "${INCLUDE[@]}"; do
         if [[ "${f}" == "" ]]; then
             continue
         fi
-        INDIVIDUAL_FILES="${INDIVIDUAL_FILES} $(splitpath ${f})"
+        INDIVIDUAL_FILES="${INDIVIDUAL_FILES} $(splitpath "${f}")"
     done
+    IFS=' '; read -r -a INDIVIDUAL_FILES_ARRAY <<<"$INDIVIDUAL_FILES"
 
-    tar ${KEEPCACHE} ${VCS} -zcf ${CMSSW_VERSION}.tar.gz -C ${CMSSW_BASE}/.. ${CMSSW_VERSION} ${INDIVIDUAL_FILES}
+    tar "${KEEPCACHE}" "${VCS}" -zcf "${CMSSW_VERSION}.tar.gz" -C "${CMSSW_BASE}/.." "${CMSSW_VERSION}" "${INDIVIDUAL_FILES_ARRAY[@]}"
     TAR="${CMSSW_VERSION}.tar.gz"
 fi
 
 # show the tarball
 if [ -e "${TAR}" ]; then
-    ls -lth ${TAR}
+    ls -lth "${TAR}"
 fi
 
 # Output an error and exit if the tarball is too large
@@ -190,10 +194,10 @@ if (( TARSIZE > MAXTARSIZE )); then
 
     # Even though the code is stopped early, we still want to cleanup the temporary files
     if [[ "${CLEAN}" == "true" ]]; then
-        clean ${TAR} ${list_of_cache_files[@]}
+        clean "${TAR}" "${list_of_cache_files[@]}"
     fi
 
-    exit -1
+    exit 2
 fi
 
 # select the correct build image based on the SCRAM_ARCH of the CMSSW release
@@ -211,14 +215,14 @@ fi
 
 # build the image
 echo -e "Building the image ..."
-buildah --root ${ROOT} --runroot ${ROOT} bud -f ${FILE} -t ${TAG} -v /cvmfs/cms.cern.ch:/cvmfs/cms.cern.ch \
-        --build-arg BUILDIMAGE=${BUILDIMAGE} --build-arg BASEIMAGE=${BASE} --build-arg BUILD_DATE=`date -u +%Y-%m-%d` --build-arg ANALYSIS_NAME=${NAME} \
-        --build-arg CMSSW_VERSION=${CMSSW_VERSION} --build-arg TAR=`realpath --relative-to="${PWD}" "${TAR}"` --build-arg NONPRIVILEGED_USER=${USER}
+buildah --root "${ROOT}" --runroot "${ROOT}" bud -f "${FILE}" -t "${TAG}" -v /cvmfs/cms.cern.ch:/cvmfs/cms.cern.ch \
+        --build-arg BUILDIMAGE="${BUILDIMAGE}" --build-arg BASEIMAGE="${BASE}" --build-arg BUILD_DATE="$(date -u +%Y-%m-%d)" --build-arg ANALYSIS_NAME="${NAME}" \
+        --build-arg CMSSW_VERSION="${CMSSW_VERSION}" --build-arg TAR="$(realpath --relative-to="${PWD}" "${TAR}")" --build-arg NONPRIVILEGED_USER="${USER}"
 
 # Cleanup the temporary files
 if [[ "${CLEAN}" == "true" ]]; then
-    clean ${TAR} ${list_of_cache_files[@]}
+    clean "${TAR}" "${list_of_cache_files[@]}"
 fi
 
 # Return to the original working directory
-cd ${CWD}
+cd "${CWD}"
