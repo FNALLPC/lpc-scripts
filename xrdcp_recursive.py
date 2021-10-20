@@ -4,7 +4,7 @@
 
 Note to users: This is not to be used for xrdcp'ing files from an XRootD source to a local directory,
 nor from an XRootD source to an XRootD endpoint. For those kinds of transfers, XRootD already supports
-them with the command `xrdcp -r'. 
+them with the command `xrdcp -r'.
 
 Created by: John Hakala, 03/28/2017
 Modified by: Alexx Perloff, 10/02/2021
