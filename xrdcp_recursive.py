@@ -2,6 +2,10 @@
 
 """This module will recursively xrdcp (XRootD copy) files from a local directory to a XRootD endpoint.
 
+Note to users: This is not to be used for xrdcp'ing files from an XRootD source to a local directory,
+nor from an XRootD source to an XRootD endpoint. For those kinds of transfers, XRootD already supports
+them with the command `xrdcp -r'. 
+
 Created by: John Hakala, 03/28/2017
 Modified by: Alexx Perloff, 10/02/2021
 """
@@ -12,13 +16,13 @@ import subprocess
 import sys
 from RecursiveFileList import get_file_list
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument("-r", "--redir", metavar = "redirector", default = "root://cmseos.fnal.gov/",
                     help = "the XRootD endpoint (default = %(default)s)")
 parser.add_argument("-s", "--source", metavar = "source",
-                    help = "the source directory")
+                    help = "the local source directory")
 parser.add_argument("-t", "--target", metavar = "target",
-                    help = "the target directory")
+                    help = "the XRootD endpoint target directory")
 args = parser.parse_args()
 
 if args.source is None or args.target is None:
