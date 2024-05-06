@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# default values
+if [ -z "$PIPE_CONDOR_DIR" ]; then
+	export PIPE_CONDOR_DIR=~/nobackup/pipes
+fi
+export PIPE_CONDOR_DIR=$(readlink -f $PIPE_CONDOR_DIR)
+mkdir -p $PIPE_CONDOR_DIR
+# ensure the pipe dir is bound
+export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${PIPE_CONDOR_DIR}
+
 # concept based on https://stackoverflow.com/questions/32163955/how-to-run-shell-script-on-host-from-docker-container
 
 # execute command sent to host pipe; send output to container pipe; store exit code
@@ -19,7 +28,7 @@ export -f listenhost
 # creates randomly named pipe and prints the name
 makepipe(){
 	PREFIX=$1
-	PIPETMP=$(readlink -f ~/nobackup/${PREFIX}_$(uuidgen))
+	PIPETMP=${PIPE_CONDOR_DIR}/${PREFIX}_$(uuidgen)
 	mkfifo $PIPETMP
 	echo $PIPETMP
 }
@@ -57,15 +66,15 @@ export -f copy_function
 
 # set this default on host, but not in container (in case overridden)
 if [ -z "$APPTAINER_CONTAINER" ]; then
-	export DISABLE_PIPE_CONDOR=0
+	export PIPE_CONDOR_DISABLE=0
 fi
 if [ -z "$APPTAINER_ORIG" ]; then
 	export APPTAINER_ORIG=$(which apptainer)
 fi
 apptainer(){
-	if [ "$DISABLE_PIPE_CONDOR" -eq 1 ]; then
+	if [ "$PIPE_CONDOR_DISABLE" -eq 1 ]; then
 		(
-		export APPTAINERENV_DISABLE_PIPE_CONDOR=1
+		export APPTAINERENV_PIPE_CONDOR_DISABLE=1
 		$APPTAINER_ORIG "$@"
 		)
 	else
@@ -87,7 +96,7 @@ export -f apptainer
 if [ -z "$APPTAINER_CONTAINER" ]; then
 	export APPTAINERENV_HOSTFNS=$(compgen -c | grep ^condor_)
 # in container: replace with call_host versions
-elif [ "$DISABLE_PIPE_CONDOR" -ne 1 ]; then
+elif [ "$PIPE_CONDOR_DISABLE" -ne 1 ]; then
 	for HOSTFN in $HOSTFNS; do
 		copy_function call_host $HOSTFN
 	done
