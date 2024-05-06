@@ -1,6 +1,41 @@
 # lpc-scripts
 scripts of use on the cmslpc cluster
 
+## `pipe_condor.sh`
+
+HTCondor commands are installed on cmslpc interactive nodes, but by default they are not accessible inside containers.
+
+The script [pipe_condor.sh](./pipe_condor.sh) enables calling HTCondor commands *on the host node* from inside a container.
+
+### Usage
+
+In your `.bashrc`:
+```bash
+source pipe_condor.sh
+```
+
+Starting a container (the arguments are necessary for your `.bashrc` to be loaded inside the container):
+```bash
+cmssw-el7 -- /bin/bash
+```
+
+### Details
+
+What happens:
+* The `apptainer` command is replaced with a function that will create a set of pipes on the host node before running `apptainer`.
+* Inside the container, all executables starting with `condor_` will automatically run on the host node.
+* To run other commands on the host node, use `call_host cmd`, where `cmd` is the command you want to run (with any arguments).
+
+Options:
+* Before sourcing the script in your `.bashrc`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
+    ```bash
+    export PIPE_CONDOR_DIR=your_dir
+    ```
+* If you want to temporarily disable this for a specific container invocation:
+    ```bash
+    PIPE_CONDOR_DISABLE=1 cmssw-el7 ...
+    ````
+
 ## Unit and Integration testing
 
 ### Automated
