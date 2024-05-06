@@ -36,6 +36,41 @@ Options:
     PIPE_CONDOR_DISABLE=1 cmssw-el7 ...
     ````
 
+## `bind_condor.sh`
+
+It is also possible to use the HTCondor Python bindings inside a container.
+This requires correctly specifying the HTCondor configuration.
+A simple approach is provided in [bind_condor.sh](./bind_condor.sh).
+
+### Usage
+
+In your `.bashrc`:
+```bash
+source bind_condor.sh
+```
+That's it!
+
+### Setting up bindings
+
+You will also need to have the HTCondor Python bindings installed in your working environment.
+
+Here is an example of how to do this in `CMSSW_10_6_X`, the Run 2 ultra-legacy analysis release that is only available for EL7 operating systems:
+```bash
+cmsrel CMSSW_10_6_30
+cd CMSSW_10_6_30/src
+cmsenv
+scram-venv
+cmsenv
+pip3 install --upgrade pip
+cmsenv
+pip3 install --upgrade htcondor==10.3.0
+```
+In this particular case, it is necessary to upgrade `pip` and install a specific version of the bindings
+because the Python version in `CMSSW_10_6_X` is old (Python 3.6.4).
+
+**NOTE**: This recipe only installs the bindings for Python3, whereas Python2 was still the default in `CMSSW_10_6_X`.
+You will need to make sure any scripts using the bindings are compatible with Python3.
+
 ## Unit and Integration testing
 
 ### Automated
