@@ -2,13 +2,16 @@
 
 # concept based on https://stackoverflow.com/questions/32163955/how-to-run-shell-script-on-host-from-docker-container
 
-# execute command sent to host pipe; send output to container pipe; send terminating string when command finishes
+# execute command sent to host pipe; send output to container pipe; store exit code
 listenhost(){
 	# stop when host pipe is removed
 	while [ -e $1 ]; do
 		# "|| true" is necessary to stop "Interrupted system call"
 		# must be *inside* eval to ensure EOF once command finishes
-		eval "$(cat $1) || true" >& $2
+		# now replaced with assignment of exit code to local variable (which also returns true)
+		tmpexit=0
+		eval "$(cat $1) || tmpexit="'$?' >& $2
+		echo $tmpexit > $3
 	done
 }
 export -f listenhost
@@ -26,12 +29,13 @@ export -f makepipe
 startpipe(){
 	HOSTPIPE=$(makepipe HOST)
 	CONTPIPE=$(makepipe CONT)
-	# export HOSTPIPE and CONTPIPE to apptainer
-	echo "export APPTAINERENV_HOSTPIPE=$HOSTPIPE; export APPTAINERENV_CONTPIPE=$CONTPIPE"
+	EXITPIPE=$(makepipe EXIT)
+	# export pipes to apptainer
+	echo "export APPTAINERENV_HOSTPIPE=$HOSTPIPE; export APPTAINERENV_CONTPIPE=$CONTPIPE; export APPTAINERENV_EXITPIPE=$EXITPIPE"
 }
 export -f startpipe
 
-# sends function to host, then listens for output
+# sends function to host, then listens for output, and provides exit code from function
 call_host(){
 	if [ "$FUNCNAME" = "call_host" ]; then
 		FUNCTMP=
@@ -40,6 +44,7 @@ call_host(){
 	fi
 	echo "cd $PWD; $FUNCTMP $@" > $HOSTPIPE
 	cat < $CONTPIPE
+	return $(cat < $EXITPIPE)
 }
 export -f call_host
 
@@ -67,12 +72,12 @@ apptainer(){
 		# in subshell to contain exports
 		(
 		eval $(startpipe)
-		listenhost $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE &
+		listenhost $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE &
 		LISTENER=$!
 		$APPTAINER_ORIG "$@"
 		# avoid dangling cat process after exiting container
 		pkill -P $LISTENER
-		rm -f $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE
+		rm -f $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE
 		)
 	fi
 }
@@ -87,5 +92,5 @@ elif [ "$DISABLE_PIPE_CONDOR" -ne 1 ]; then
 		copy_function call_host $HOSTFN
 	done
 	# cleanup
-	trap "rm -f $HOSTPIPE $CONTPIPE" EXIT
+	trap "rm -f $HOSTPIPE $CONTPIPE $EXITPIPE" EXIT
 fi
