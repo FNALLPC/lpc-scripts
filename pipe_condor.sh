@@ -71,6 +71,8 @@ fi
 if [ -z "$APPTAINER_ORIG" ]; then
 	export APPTAINER_ORIG=$(which apptainer)
 fi
+# always set this (in case of nested containers)
+export APPTAINERENV_APPTAINER_ORIG=$APPTAINER_ORIG
 apptainer(){
 	if [ "$PIPE_CONDOR_DISABLE" -eq 1 ]; then
 		(
