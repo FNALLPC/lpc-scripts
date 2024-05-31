@@ -1,6 +1,115 @@
 # lpc-scripts
 scripts of use on the cmslpc cluster
 
+## `pipe_condor.sh`
+
+HTCondor commands are installed on cmslpc interactive nodes, but by default they are not accessible inside containers.
+
+The script [pipe_condor.sh](./pipe_condor.sh) enables calling HTCondor commands *on the host node* from inside a container.
+
+### Usage
+
+In your `.bashrc`:
+```bash
+source pipe_condor.sh
+```
+
+Whenever you edit your `.bashrc`, you should log out and log back in for the changes to take effect.
+
+To check if this line in your `.bashrc` is being executed when you log in, make sure the following command shows some output:
+```bash
+echo $APPTAINERENV_APPTAINER_ORIG
+```
+
+Starting a container (the arguments are necessary for your `.bashrc` to be loaded inside the container):
+```bash
+cmssw-el7 -- /bin/bash
+```
+
+### Details
+
+What happens:
+* The `apptainer` command is replaced with a function that will create a set of pipes on the host node before running `apptainer`.
+* Inside the container, all executables starting with `condor_` will automatically run on the host node.
+* To run other commands on the host node, use `call_host cmd`, where `cmd` is the command you want to run (with any arguments).
+* Nested containers are supported (the enable/disable status (see "Options" just below) is inherited from the top-level container and cannot be changed)
+
+Options:
+* Before sourcing the script in your `.bashrc`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
+    ```bash
+    export PIPE_CONDOR_DIR=your_dir
+    ```
+* If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc`:
+    ```bash
+    export PIPE_CONDOR_STATUS=${PIPE_CONDOR_STATUS:=disable}
+    ```
+    Then to enable it temporarily:
+    ```bash
+    PIPE_CONDOR_STATUS=enable cmssw-el7 ...
+    ```
+* Instead, if you have this enabled by default and you want to temporarily disable this for a specific container invocation:
+    ```bash
+    PIPE_CONDOR_STATUS=disable cmssw-el7 ...
+    ````
+
+Caveats:
+* cmslpc autodetection of the correct operating system for jobs is currently based on the host OS. Therefore, if you are submitting jobs in a container with a different OS, you will have to manually specify in your JDL file (the `X` in `condor_submit X`):
+    ```
+    +DesiredOS = SL7
+    ```
+    (other possible values are EL8 or EL9)
+* if you are running in a non-RHEL container, then you should manually set a different line in your JDL file:
+    ```
+    +ApptainerImage = "/path/to/your/container"
+    ```
+* CMS connect support is planned, but has not been tested yet.
+
+## `bind_condor.sh`
+
+It is also possible to use the HTCondor Python bindings inside a container.
+This requires correctly specifying the HTCondor configuration.
+A simple approach is provided in [bind_condor.sh](./bind_condor.sh).
+
+### Usage
+
+In your `.bashrc`:
+```bash
+source bind_condor.sh
+```
+That's it!
+
+### Setting up bindings
+
+You will also need to have the HTCondor Python bindings installed in your working environment.
+
+For newer CMSSW versions, the installation procedure is simple:
+```bash
+cmsrel CMSSW_X_Y_Z
+cd CMSSW_X_Y_Z/src
+cmsenv
+scram-venv
+cmsenv
+pip3 install htcondor
+```
+(Click [here](http://cms-sw.github.io/venv.html) to learn more about `scram-venv`)
+
+For `CMSSW_10_6_X`, the Run 2 ultra-legacy analysis release that is only available for EL7 operating systems, there are some extra steps:
+```bash
+cmsrel CMSSW_10_6_30
+cd CMSSW_10_6_30/src
+cmsenv
+scram-venv
+cmsenv
+pip3 install --upgrade pip
+cmsenv
+pip3 install --upgrade htcondor==10.3.0
+```
+In this particular case, it is necessary to upgrade `pip` and install a specific version of the bindings
+because the Python version in `CMSSW_10_6_X` is old (Python 3.6.4).
+
+**NOTE**: These recipes only install the bindings for Python3. (Python2 was still the default in `CMSSW_10_6_X`.)
+You will need to make sure any scripts using the bindings are compatible with Python3.
+
 ## Unit and Integration testing
 
 ### Automated
