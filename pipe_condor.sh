@@ -1,6 +1,8 @@
 #!/bin/bash
+# shellcheck disable=SC2155
 
 # default values
+# shellcheck disable=SC2076
 if [ -z "$PIPE_CONDOR_STATUS" ]; then
 	export PIPE_CONDOR_STATUS=enable
 elif [[ ! " enable disable " =~ " $PIPE_CONDOR_STATUS " ]]; then
@@ -10,8 +12,8 @@ fi
 if [ -z "$PIPE_CONDOR_DIR" ]; then
 	export PIPE_CONDOR_DIR=~/nobackup/pipes
 fi
-export PIPE_CONDOR_DIR=$(readlink -f $PIPE_CONDOR_DIR)
-mkdir -p $PIPE_CONDOR_DIR
+export PIPE_CONDOR_DIR=$(readlink -f "$PIPE_CONDOR_DIR")
+mkdir -p "$PIPE_CONDOR_DIR"
 # ensure the pipe dir is bound
 export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${PIPE_CONDOR_DIR}
 
@@ -20,23 +22,23 @@ export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${PIPE_CONDOR_DIR}
 # execute command sent to host pipe; send output to container pipe; store exit code
 listenhost(){
 	# stop when host pipe is removed
-	while [ -e $1 ]; do
+	while [ -e "$1" ]; do
 		# "|| true" is necessary to stop "Interrupted system call"
 		# must be *inside* eval to ensure EOF once command finishes
 		# now replaced with assignment of exit code to local variable (which also returns true)
 		tmpexit=0
-		eval "$(cat $1) || tmpexit="'$?' >& $2
-		echo $tmpexit > $3
+		eval "$(cat "$1") || tmpexit="'$?' >& "$2"
+		echo "$tmpexit" > "$3"
 	done
 }
 export -f listenhost
 
 # creates randomly named pipe and prints the name
 makepipe(){
-	PREFIX=$1
+	PREFIX="$1"
 	PIPETMP=${PIPE_CONDOR_DIR}/${PREFIX}_$(uuidgen)
-	mkfifo $PIPETMP
-	echo $PIPETMP
+	mkfifo "$PIPETMP"
+	echo "$PIPETMP"
 }
 export -f makepipe
 
@@ -52,14 +54,14 @@ export -f startpipe
 
 # sends function to host, then listens for output, and provides exit code from function
 call_host(){
-	if [ "$FUNCNAME" = "call_host" ]; then
+	if [ "${FUNCNAME[0]}" = "call_host" ]; then
 		FUNCTMP=
 	else
-		FUNCTMP=$FUNCNAME
+		FUNCTMP="${FUNCNAME[0]}"
 	fi
-	echo "cd $PWD; $FUNCTMP $@" > $HOSTPIPE
-	cat < $CONTPIPE
-	return $(cat < $EXITPIPE)
+	echo "cd $PWD; $FUNCTMP $*" > "$HOSTPIPE"
+	cat < "$CONTPIPE"
+	return "$(cat < "$EXITPIPE")"
 }
 export -f call_host
 
@@ -80,18 +82,20 @@ export APPTAINERENV_APPTAINER_ORIG=$APPTAINER_ORIG
 apptainer(){
 	if [ "$PIPE_CONDOR_STATUS" = "disable" ]; then
 		(
+		# shellcheck disable=SC2030
 		export APPTAINERENV_PIPE_CONDOR_STATUS=disable
 		$APPTAINER_ORIG "$@"
 		)
 	else
 		# in subshell to contain exports
 		(
+		# shellcheck disable=SC2031
 		export APPTAINERENV_PIPE_CONDOR_STATUS=enable
 		# only start pipes on host
 		# i.e. don't create more pipes/listeners for nested containers
 		if [ -z "$APPTAINER_CONTAINER" ]; then
-			eval $(startpipe)
-			listenhost $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE &
+			eval "$(startpipe)"
+			listenhost "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE" &
 			LISTENER=$!
 		fi
 		# actually run apptainer
@@ -99,8 +103,8 @@ apptainer(){
 		# avoid dangling cat process after exiting container
 		# (again, only on host)
 		if [ -z "$APPTAINER_CONTAINER" ]; then
-			pkill -P $LISTENER
-			rm -f $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE
+			pkill -P "$LISTENER"
+			rm -f "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE"
 		fi
 		)
 	fi
@@ -112,7 +116,8 @@ if [ -z "$APPTAINER_CONTAINER" ]; then
 	export APPTAINERENV_HOSTFNS=$(compgen -c | grep ^condor_)
 # in container: replace with call_host versions
 elif [ "$PIPE_CONDOR_STATUS" = "enable" ]; then
+	# shellcheck disable=SC2153
 	for HOSTFN in $HOSTFNS; do
-		copy_function call_host $HOSTFN
+		copy_function call_host "$HOSTFN"
 	done
 fi
