@@ -31,9 +31,17 @@ Options:
     ```bash
     export PIPE_CONDOR_DIR=your_dir
     ```
-* If you want to temporarily disable this for a specific container invocation:
+* If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc`:
     ```bash
-    PIPE_CONDOR_DISABLE=1 cmssw-el7 ...
+    export PIPE_CONDOR_STATUS=${PIPE_CONDOR_STATUS:=disable}
+    ```
+    Then to enable it temporarily:
+    ```bash
+    PIPE_CONDOR_STATUS=enable cmssw-el7 ...
+    ```
+* Instead, if you have this enabled by default and you want to temporarily disable this for a specific container invocation:
+    ```bash
+    PIPE_CONDOR_STATUS=disable cmssw-el7 ...
     ````
 
 ## `bind_condor.sh`

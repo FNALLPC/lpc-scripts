@@ -1,6 +1,12 @@
 #!/bin/bash
 
 # default values
+if [ -z "$PIPE_CONDOR_STATUS" ]; then
+	export PIPE_CONDOR_STATUS=enable
+elif [[ ! " enable disable " =~ " $PIPE_CONDOR_STATUS " ]]; then
+	echo "Warning: unsupported value $PIPE_CONDOR_STATUS for PIPE_CONDOR_STATUS; disabling"
+	export PIPE_CONDOR_STATUS=disable
+fi
 if [ -z "$PIPE_CONDOR_DIR" ]; then
 	export PIPE_CONDOR_DIR=~/nobackup/pipes
 fi
@@ -65,24 +71,22 @@ copy_function() {
 }
 export -f copy_function
 
-# set this default on host, but not in container (in case overridden)
-if [ -z "$APPTAINER_CONTAINER" ]; then
-	export PIPE_CONDOR_DISABLE=0
-fi
 if [ -z "$APPTAINER_ORIG" ]; then
 	export APPTAINER_ORIG=$(which apptainer)
 fi
 # always set this (in case of nested containers)
 export APPTAINERENV_APPTAINER_ORIG=$APPTAINER_ORIG
+
 apptainer(){
-	if [ "$PIPE_CONDOR_DISABLE" -eq 1 ]; then
+	if [ "$PIPE_CONDOR_STATUS" = "disable" ]; then
 		(
-		export APPTAINERENV_PIPE_CONDOR_DISABLE=1
+		export APPTAINERENV_PIPE_CONDOR_STATUS=disable
 		$APPTAINER_ORIG "$@"
 		)
 	else
 		# in subshell to contain exports
 		(
+		export APPTAINERENV_PIPE_CONDOR_STATUS=enable
 		# only start pipes on host
 		# i.e. don't create more pipes/listeners for nested containers
 		if [ -z "$APPTAINER_CONTAINER" ]; then
@@ -107,7 +111,7 @@ export -f apptainer
 if [ -z "$APPTAINER_CONTAINER" ]; then
 	export APPTAINERENV_HOSTFNS=$(compgen -c | grep ^condor_)
 # in container: replace with call_host versions
-elif [ "$PIPE_CONDOR_DISABLE" -ne 1 ]; then
+elif [ "$PIPE_CONDOR_STATUS" = "enable" ]; then
 	for HOSTFN in $HOSTFNS; do
 		copy_function call_host $HOSTFN
 	done
