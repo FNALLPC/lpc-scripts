@@ -177,7 +177,7 @@ def get_version_popen(path, note="", shorten=False, width=120, lcg_version="", a
         output = process.communicate()[0]
         output = output.decode('utf-8')
     output = output.replace('+','')
-    version_info = list(map(int, output.split()[1].split('.')))
+    version_info = [int(x) for x in output.split()[1].split('.')]
     versions = []
     short_path = get_short_path(path)
     pathlines = split_path_width(short_path if shorten else path, width=width)
@@ -269,7 +269,7 @@ def dict_to_formatted_versions(dictionary, width):
     """
     versions = []
     sorted_list = sorted(dictionary.items(),
-                         key=lambda item: tuple(list(map(int, item[0].split('.')[0:3])) +
+                         key=lambda item: tuple([int(x) for x in item[0].split('.')[0:3]] +
                                                 [item[0].split('.')[3] if len(item[0].split('.')) > 3 else ""]))
     for python_version, version in sorted_list:
         versions += dict_entry_to_formatted_version(python_version, version, width)
