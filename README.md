@@ -81,7 +81,17 @@ That's it!
 
 You will also need to have the HTCondor Python bindings installed in your working environment.
 
-Here is an example of how to do this in `CMSSW_10_6_X`, the Run 2 ultra-legacy analysis release that is only available for EL7 operating systems:
+For newer CMSSW versions, the installation procedure is simple:
+```bash
+cmsrel CMSSW_X_Y_Z
+cd CMSSW_X_Y_Z/src
+cmsenv
+scram-venv
+cmsenv
+pip3 install htcondor
+```
+
+For `CMSSW_10_6_X`, the Run 2 ultra-legacy analysis release that is only available for EL7 operating systems, there are some extra steps:
 ```bash
 cmsrel CMSSW_10_6_30
 cd CMSSW_10_6_30/src
@@ -95,7 +105,7 @@ pip3 install --upgrade htcondor==10.3.0
 In this particular case, it is necessary to upgrade `pip` and install a specific version of the bindings
 because the Python version in `CMSSW_10_6_X` is old (Python 3.6.4).
 
-**NOTE**: This recipe only installs the bindings for Python3, whereas Python2 was still the default in `CMSSW_10_6_X`.
+**NOTE**: These recipes only install the bindings for Python3. (Python2 was still the default in `CMSSW_10_6_X`.)
 You will need to make sure any scripts using the bindings are compatible with Python3.
 
 ## Unit and Integration testing
