@@ -104,6 +104,7 @@ done
 dependency_check() {
     subuid=$(< /etc/subuid grep "^$(id -u):")
     subgid=$(< /etc/subgid grep "^$(id -u):")
+    # shellcheck disable=SC2319
     if ! command -v buildah &> /dev/null; then
         EXIT=$?
         echo "Buildah could not be found!"

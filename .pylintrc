@@ -1,4 +1,4 @@
-[MASTER]
+[MAIN]
 
 # Specify a configuration file.
 #rcfile=
@@ -253,4 +253,4 @@ max-public-methods=20
 
 # Exceptions that will emit a warning when being caught. Defaults to
 # "Exception"
-overgeneral-exceptions=Exception
+overgeneral-exceptions=builtins.Exception

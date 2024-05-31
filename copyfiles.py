@@ -67,7 +67,6 @@ class GfalCommand(Command):
         self.end_site_prefix = self.get_site_prefix(self.end_site) if self.end_site is not None else ""
         self.build_command()
 
-    # pylint: disable=no-self-use
     def get_site_prefix(self, site):
         """Return the formatted site path, including the protcol to use, the endpoint,
         and the initial portion of the path, through the username.
@@ -261,6 +260,7 @@ def make_directory(end_site, path, protocol, debug = False):
         return os.path.exists(path)
     else:
         ls_command = None
+        mkdir_command = None
         if protocol == "gfal":
             ls_command = GfalCommand(action = "ls",
                                      verbose = True,
@@ -278,7 +278,8 @@ def make_directory(end_site, path, protocol, debug = False):
                                           subaction = "mkdir",
                                           end_site = end_site,
                                           override_path = path)
-
+        else:
+            raise ValueError("Unknown protocol {}".format(protocol))
         returncode = 0
         output = ""
         with subprocess.Popen(ls_command.get_full_command(),
@@ -333,6 +334,7 @@ def get_list_of_files(protocol, start_site, sample, path, debug = False):
     elif not remote_is_dir(start_site, path):
         files_unfiltered = [path]
     else:
+        ls_command = None
         if protocol == "gfal":
             ls_command = GfalCommand(action = "ls",
                                      start_site = start_site,
@@ -342,6 +344,8 @@ def get_list_of_files(protocol, start_site, sample, path, debug = False):
                                        subaction = "ls",
                                        start_site = start_site,
                                        override_path = path)
+        else:
+            raise ValueError("Unknown protocol {}".format(protocol))
         cmd = ls_command.get_full_command()
         if debug:
             print("get_list_of_files:")

@@ -19,7 +19,6 @@ import GetSiteInfo
 import RecursiveFileList
 import toolgenie
 # pylint: enable=wrong-import-position
-# pylint: disable=no-self-use
 
 class Capturing(list):
     """A context manager which captures stdout and returns it as a list of strings, one for each line.
