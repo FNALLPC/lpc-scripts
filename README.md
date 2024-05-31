@@ -32,6 +32,7 @@ What happens:
 * The `apptainer` command is replaced with a function that will create a set of pipes on the host node before running `apptainer`.
 * Inside the container, all executables starting with `condor_` will automatically run on the host node.
 * To run other commands on the host node, use `call_host cmd`, where `cmd` is the command you want to run (with any arguments).
+* Nested containers are supported (the enable/disable status (see "Options" just below) is inherited from the top-level container and cannot be changed)
 
 Options:
 * Before sourcing the script in your `.bashrc`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
