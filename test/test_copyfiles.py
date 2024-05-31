@@ -41,7 +41,6 @@ import shlex
 import shutil
 import subprocess
 
-# pylint: disable=no-self-use
 # pylint: disable=consider-using-with
 # pylint: disable=invalid-name
 # pylint: disable=too-many-public-methods
@@ -152,7 +151,7 @@ class TestCopyfilesMethods(unittest.TestCase):
                     self.assertTrue(actual_count == expected_count, (f"The file count in folder {path} ({actual_count:d}) "
                                                                  f"doesn't match the expected count of {expected_count:d}"))
                 else:
-                    raise Exception("Remote file checking not yet implemented")
+                    raise RuntimeError("Remote file checking not yet implemented")
 
     def test_local_local_file(self):
         """Copy a single file from a local source to a local destination."""

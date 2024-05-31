@@ -67,7 +67,6 @@ class GfalCommand(Command):
         self.end_site_prefix = self.get_site_prefix(self.end_site) if self.end_site is not None else ""
         self.build_command()
 
-    # pylint: disable=no-self-use
     def get_site_prefix(self, site):
         """Return the formatted site path, including the protcol to use, the endpoint,
         and the initial portion of the path, through the username.
@@ -261,6 +260,7 @@ def make_directory(end_site, path, protocol, debug = False):
         return os.path.exists(path)
     else:
         ls_command = None
+        mkdir_command = None
         if protocol == "gfal":
             ls_command = GfalCommand(action = "ls",
                                      verbose = True,
@@ -278,7 +278,8 @@ def make_directory(end_site, path, protocol, debug = False):
                                           subaction = "mkdir",
                                           end_site = end_site,
                                           override_path = path)
-
+        else:
+            raise ValueError(f"Unknown protocol {protocol}")
         returncode = 0
         output = ""
         with subprocess.Popen(ls_command.get_full_command(),
@@ -333,6 +334,7 @@ def get_list_of_files(protocol, start_site, sample, path, debug = False):
     elif not remote_is_dir(start_site, path):
         files_unfiltered = [path]
     else:
+        ls_command = None
         if protocol == "gfal":
             ls_command = GfalCommand(action = "ls",
                                      start_site = start_site,
@@ -342,6 +344,8 @@ def get_list_of_files(protocol, start_site, sample, path, debug = False):
                                        subaction = "ls",
                                        start_site = start_site,
                                        override_path = path)
+        else:
+            raise ValueError(f"Unknown protocol {protocol}")
         cmd = ls_command.get_full_command()
         if debug:
             print("get_list_of_files:")
@@ -439,7 +443,7 @@ def copytree(start_site, src, end_site, dst, current_depth, symlinks = False, ig
     if not arguments.dry_run:
         made_dir = make_directory(end_site, dst, arguments.protocol, arguments.debug)
         if not made_dir:
-            raise Exception("ERROR::copytree::Unable to make the destination directory.")
+            raise RuntimeError("ERROR::copytree::Unable to make the destination directory.")
 
     files = get_list_of_files(arguments.protocol, start_site, arguments.sample, src, arguments.debug)
 
@@ -536,7 +540,7 @@ def built_in_recursion(start_site, end_site, arguments):
     if not arguments.dry_run:
         made_dir = make_directory(end_site, end_site.path, arguments.protocol, arguments.debug)
         if not made_dir:
-            raise Exception("ERROR::built_in_recursion::Unable to make the destination directory.")
+            raise RuntimeError("ERROR::built_in_recursion::Unable to make the destination directory.")
 
     # Run the command and check the output codes
     with subprocess.Popen(command, shell = True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT) as process:
@@ -546,7 +550,7 @@ def built_in_recursion(start_site, end_site, arguments):
         if process.returncode == 0:
             return True
         else:
-            raise Exception("ERROR::built_in_recursion() Something went wrong with the copy command.")
+            raise RuntimeError("ERROR::built_in_recursion() Something went wrong with the copy command.")
 
 def main(arguments = argparse.Namespace()):
     """The main function coordinating the overal logic of which protocols to use, how to get the site/server

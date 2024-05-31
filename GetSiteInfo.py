@@ -354,7 +354,7 @@ def get_site_info(site_alias = "",
         if shell is not None and isinstance(shell, list):
             site.print_shell_str(shell, env)
         else:
-            print(site.__str__())
+            print(str(site))
 
     return site
 
