@@ -126,9 +126,9 @@ def get_selected_architectures(relmap, architecture = None, quiet = False):
     else:
         user_response = architecture
     if user_response.isdigit() and (int(user_response) > len(architecture_options) or int(user_response) < 0):
-        raise Exception("The response was out of bounds. You must enter a listed value.\n")
+        raise ValueError("The response was out of bounds. You must enter a listed value.\n")
     if not user_response.isdigit() and 'r:' not in user_response and user_response not in architecture_options:
-        raise Exception("The response was not in the list of acceptable scram architectures.\n")
+        raise ValueError("The response was not in the list of acceptable scram architectures.\n")
     selected_architectures = []
     if 'r:' in user_response:
         user_response_altered = user_response[2:]
@@ -137,7 +137,7 @@ def get_selected_architectures(relmap, architecture = None, quiet = False):
         selected_architectures = [architecture_options[int(user_response)-1]
                                   if user_response.isdigit() else user_response]
     if len(selected_architectures) == 0:
-        raise Exception(f"Uh oh! No architectures were found based on your input ({user_response}).")
+        raise ValueError(f"Uh oh! No architectures were found based on your input ({user_response}).")
 
     return (selected_architectures, user_response)
 
@@ -161,9 +161,9 @@ def get_selected_releases(selected_releases, cmssw = None, quiet = False):
     else:
         user_response = cmssw
     if user_response.isdigit() and (int(user_response) > len(label_options) or int(user_response) < 0):
-        raise Exception("The response was out of bounds. You must enter a listed value.\n")
+        raise ValueError("The response was out of bounds. You must enter a listed value.\n")
     if not user_response.isdigit() and 'r:' not in user_response and user_response not in label_options:
-        raise Exception("The response was not in the list of acceptable CMSSW releases.\n")
+        raise ValueError("The response was not in the list of acceptable CMSSW releases.\n")
     selected_labels = []
     if 'r:' in user_response:
         user_response_altered = user_response[2:]
@@ -171,7 +171,7 @@ def get_selected_releases(selected_releases, cmssw = None, quiet = False):
     else:
         selected_labels = [label_options[int(user_response)-1] if user_response.isdigit() else user_response]
     if len(selected_labels) == 0:
-        raise Exception(f"Uh oh! No releases were found based on your input ({user_response}).")
+        raise ValueError(f"Uh oh! No releases were found based on your input ({user_response}).")
     selected_releases = filter_on_label(selected_releases, selected_labels)
 
     return selected_releases
@@ -193,9 +193,9 @@ def get_selected_toolboxes(selected_releases_tools, tool = None, quiet = False):
     selected_toolboxes = {}
     for user_response in user_responses:
         if user_response.isdigit() and (int(user_response) > len(tool_options) or int(user_response) < 0):
-            raise Exception("The response was out of bounds. You must enter a listed value.\n")
+            raise ValueError("The response was out of bounds. You must enter a listed value.\n")
         if not user_response.isdigit() and user_response not in tool_options:
-            raise Exception("The response was not in the list of acceptable tools.\n")
+            raise ValueError("The response was not in the list of acceptable tools.\n")
         selected_tool = tool_options[int(user_response)-1] if user_response.isdigit() else user_response
         if not selected_tool in selected_toolboxes:
             selected_toolboxes[selected_tool] = filter_on_tool(selected_releases_tools, selected_tool)
@@ -292,7 +292,7 @@ def parse_release_map(source=MapSource.GITHUB):
         with open("/cvmfs/cms.cern.ch/releases.map", mode='r', encoding='utf-8') as release_map:
             relmap = parse_map_lines(release_map)
     else:
-        raise Exception("Unknown source for the architecture/release map.\n")
+        raise ValueError(f"Unknown source {source} for the architecture/release map.\n")
 
     return relmap
 
