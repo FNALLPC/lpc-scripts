@@ -14,6 +14,13 @@ In your `.bashrc`:
 source pipe_condor.sh
 ```
 
+Whenever you edit your `.bashrc`, you should log out and log back in for the changes to take effect.
+
+To check if this line in your `.bashrc` is being executed when you log in, make sure the following command shows some output:
+```bash
+echo $APPTAINERENV_APPTAINER_ORIG
+```
+
 Starting a container (the arguments are necessary for your `.bashrc` to be loaded inside the container):
 ```bash
 cmssw-el7 -- /bin/bash
