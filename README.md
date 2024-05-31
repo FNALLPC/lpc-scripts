@@ -51,6 +51,18 @@ Options:
     PIPE_CONDOR_STATUS=disable cmssw-el7 ...
     ````
 
+Caveats:
+* cmslpc autodetection of the correct operating system for jobs is currently based on the host OS. Therefore, if you are submitting jobs in a container with a different OS, you will have to manually specify in your JDL file (the `X` in `condor_submit X`):
+    ```
+    +DesiredOS = SL7
+    ```
+    (other possible values are EL8 or EL9)
+* if you are running in a non-RHEL container, then you should manually set a different line in your JDL file:
+    ```
+    +ApptainerImage = "/path/to/your/container"
+    ```
+* CMS connect support is planned, but has not been tested yet.
+
 ## `bind_condor.sh`
 
 It is also possible to use the HTCondor Python bindings inside a container.
