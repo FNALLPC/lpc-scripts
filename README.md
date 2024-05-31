@@ -91,6 +91,7 @@ scram-venv
 cmsenv
 pip3 install htcondor
 ```
+(Click [here](http://cms-sw.github.io/venv.html) to learn more about `scram-venv`)
 
 For `CMSSW_10_6_X`, the Run 2 ultra-legacy analysis release that is only available for EL7 operating systems, there are some extra steps:
 ```bash
