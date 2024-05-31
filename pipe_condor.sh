@@ -83,13 +83,21 @@ apptainer(){
 	else
 		# in subshell to contain exports
 		(
-		eval $(startpipe)
-		listenhost $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE &
-		LISTENER=$!
+		# only start pipes on host
+		# i.e. don't create more pipes/listeners for nested containers
+		if [ -z "$APPTAINER_CONTAINER" ]; then
+			eval $(startpipe)
+			listenhost $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE &
+			LISTENER=$!
+		fi
+		# actually run apptainer
 		$APPTAINER_ORIG "$@"
 		# avoid dangling cat process after exiting container
-		pkill -P $LISTENER
-		rm -f $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE
+		# (again, only on host)
+		if [ -z "$APPTAINER_CONTAINER" ]; then
+			pkill -P $LISTENER
+			rm -f $APPTAINERENV_HOSTPIPE $APPTAINERENV_CONTPIPE $APPTAINERENV_EXITPIPE
+		fi
 		)
 	fi
 }
@@ -103,6 +111,4 @@ elif [ "$PIPE_CONDOR_DISABLE" -ne 1 ]; then
 	for HOSTFN in $HOSTFNS; do
 		copy_function call_host $HOSTFN
 	done
-	# cleanup
-	trap "rm -f $HOSTPIPE $CONTPIPE $EXITPIPE" EXIT
 fi
