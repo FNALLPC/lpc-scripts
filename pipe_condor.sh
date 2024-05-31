@@ -61,6 +61,7 @@ export -f call_host
 copy_function() {
 	test -n "$(declare -f "$1")" || return
 	eval "${_/$1/$2}"
+	eval "export -f $2"
 }
 export -f copy_function
 
