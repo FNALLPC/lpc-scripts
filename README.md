@@ -1,17 +1,19 @@
 # lpc-scripts
 scripts of use on the cmslpc cluster
 
-## `pipe_condor.sh`
+## `call_host.sh`
 
-HTCondor commands are installed on cmslpc interactive nodes, but by default they are not accessible inside containers.
+Many commands are installed on cmslpc interactive nodes but are not accessible inside containers.
 
-The script [pipe_condor.sh](./pipe_condor.sh) enables calling HTCondor commands *on the host node* from inside a container.
+The script [call_host.sh](./call_host.sh) enables calling these commands *on the host node* from inside a container.
+
+This is particularly useful for HTCondor commands and EOS commands, among others.
 
 ### Usage
 
 In your `.bashrc`:
 ```bash
-source pipe_condor.sh
+source call_host.sh
 ```
 
 Whenever you edit your `.bashrc`, you should log out and log back in for the changes to take effect.
@@ -30,26 +32,26 @@ cmssw-el7 -- /bin/bash
 
 What happens:
 * The `apptainer` command is replaced with a function that will create a set of pipes on the host node before running `apptainer`.
-* Inside the container, all executables starting with `condor_` will automatically run on the host node.
+* Inside the container, all executables starting with `condor_` and `eos` will automatically run on the host node.
 * To run other commands on the host node, use `call_host cmd`, where `cmd` is the command you want to run (with any arguments).
 * Nested containers are supported (the enable/disable status (see "Options" just below) is inherited from the top-level container and cannot be changed)
 
 Options:
 * Before sourcing the script in your `.bashrc`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
     ```bash
-    export PIPE_CONDOR_DIR=your_dir
+    export CALL_HOST_DIR=your_dir
     ```
 * If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc`:
     ```bash
-    export PIPE_CONDOR_STATUS=${PIPE_CONDOR_STATUS:=disable}
+    export CALL_HOST_STATUS=${CALL_HOST_STATUS:=disable}
     ```
     Then to enable it temporarily:
     ```bash
-    PIPE_CONDOR_STATUS=enable cmssw-el7 ...
+    CALL_HOST_STATUS=enable cmssw-el7 ...
     ```
 * Instead, if you have this enabled by default and you want to temporarily disable this for a specific container invocation:
     ```bash
-    PIPE_CONDOR_STATUS=disable cmssw-el7 ...
+    CALL_HOST_STATUS=disable cmssw-el7 ...
     ````
 
 Caveats:
