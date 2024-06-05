@@ -11,21 +11,26 @@ This is particularly useful for HTCondor commands and EOS commands, among others
 
 ### Usage
 
-In your `.bashrc`:
+In your `.bashrc` or `.bash_profile`:
 ```bash
 source call_host.sh
 ```
 
-Whenever you edit your `.bashrc`, you should log out and log back in for the changes to take effect.
+Whenever you edit your `.bashrc` or `.bash_profile`, you should log out and log back in for the changes to take effect.
 
-To check if this line in your `.bashrc` is being executed when you log in, make sure the following command shows some output:
+To check if this line in your `.bashrc` or `.bash_profile` is being executed when you log in, make sure the following command shows some output:
 ```bash
 echo $APPTAINERENV_APPTAINER_ORIG
 ```
 
-Starting a container (the arguments are necessary for your `.bashrc` to be loaded inside the container):
+To start a container with this in your `.bashrc`:
 ```bash
-cmssw-el7 -- /bin/bash
+cmssw-el7 [options] -- /bin/bash
+```
+
+To start a container with this in your `.bash_profile`:
+```bash
+cmssw-el7 [options] -- /bin/bash -l
 ```
 
 ### Details
@@ -37,11 +42,11 @@ What happens:
 * Nested containers are supported (the enable/disable status (see "Options" just below) is inherited from the top-level container and cannot be changed)
 
 Options:
-* Before sourcing the script in your `.bashrc`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
+* Before sourcing the script in your `.bashrc` or `.bash_profile`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
     ```bash
     export CALL_HOST_DIR=your_dir
     ```
-* If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc`:
+* If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc` or `.bash_profile`:
     ```bash
     export CALL_HOST_STATUS=${CALL_HOST_STATUS:=disable}
     ```
@@ -64,6 +69,7 @@ Caveats:
     ```
     +ApptainerImage = "/path/to/your/container"
     ```
+* Commands that require tty input (such as `nano` or `emacs -nw`) will not work with `call_host`.
 * CMS connect support is planned, but has not been tested yet.
 
 ## `bind_condor.sh`
