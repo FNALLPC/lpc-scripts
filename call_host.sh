@@ -3,19 +3,19 @@
 
 # default values
 # shellcheck disable=SC2076
-if [ -z "$PIPE_CONDOR_STATUS" ]; then
-	export PIPE_CONDOR_STATUS=enable
-elif [[ ! " enable disable " =~ " $PIPE_CONDOR_STATUS " ]]; then
-	echo "Warning: unsupported value $PIPE_CONDOR_STATUS for PIPE_CONDOR_STATUS; disabling"
-	export PIPE_CONDOR_STATUS=disable
+if [ -z "$CALL_HOST_STATUS" ]; then
+	export CALL_HOST_STATUS=enable
+elif [[ ! " enable disable " =~ " $CALL_HOST_STATUS " ]]; then
+	echo "Warning: unsupported value $CALL_HOST_STATUS for CALL_HOST_STATUS; disabling"
+	export CALL_HOST_STATUS=disable
 fi
-if [ -z "$PIPE_CONDOR_DIR" ]; then
-	export PIPE_CONDOR_DIR=~/nobackup/pipes
+if [ -z "$CALL_HOST_DIR" ]; then
+	export CALL_HOST_DIR=~/nobackup/pipes
 fi
-export PIPE_CONDOR_DIR=$(readlink -f "$PIPE_CONDOR_DIR")
-mkdir -p "$PIPE_CONDOR_DIR"
+export CALL_HOST_DIR=$(readlink -f "$CALL_HOST_DIR")
+mkdir -p "$CALL_HOST_DIR"
 # ensure the pipe dir is bound
-export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${PIPE_CONDOR_DIR}
+export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${CALL_HOST_DIR}
 
 # concept based on https://stackoverflow.com/questions/32163955/how-to-run-shell-script-on-host-from-docker-container
 
@@ -36,7 +36,7 @@ export -f listenhost
 # creates randomly named pipe and prints the name
 makepipe(){
 	PREFIX="$1"
-	PIPETMP=${PIPE_CONDOR_DIR}/${PREFIX}_$(uuidgen)
+	PIPETMP=${CALL_HOST_DIR}/${PREFIX}_$(uuidgen)
 	mkfifo "$PIPETMP"
 	echo "$PIPETMP"
 }
@@ -80,17 +80,17 @@ fi
 export APPTAINERENV_APPTAINER_ORIG=$APPTAINER_ORIG
 
 apptainer(){
-	if [ "$PIPE_CONDOR_STATUS" = "disable" ]; then
+	if [ "$CALL_HOST_STATUS" = "disable" ]; then
 		(
 		# shellcheck disable=SC2030
-		export APPTAINERENV_PIPE_CONDOR_STATUS=disable
+		export APPTAINERENV_CALL_HOST_STATUS=disable
 		$APPTAINER_ORIG "$@"
 		)
 	else
 		# in subshell to contain exports
 		(
 		# shellcheck disable=SC2031
-		export APPTAINERENV_PIPE_CONDOR_STATUS=enable
+		export APPTAINERENV_CALL_HOST_STATUS=enable
 		# only start pipes on host
 		# i.e. don't create more pipes/listeners for nested containers
 		if [ -z "$APPTAINER_CONTAINER" ]; then
@@ -113,9 +113,12 @@ export -f apptainer
 
 # on host: get list of condor executables
 if [ -z "$APPTAINER_CONTAINER" ]; then
-	export APPTAINERENV_HOSTFNS=$(compgen -c | grep ^condor_)
+	export APPTAINERENV_HOSTFNS=$(compgen -c | grep '^condor_\|^eos')
+	if [ -n "$CALL_HOST_USERFNS" ]; then
+		export APPTAINERENV_HOSTFNS="$APPTAINERENV_HOSTFNS $CALL_HOST_USERFNS"
+	fi
 # in container: replace with call_host versions
-elif [ "$PIPE_CONDOR_STATUS" = "enable" ]; then
+elif [ "$CALL_HOST_STATUS" = "enable" ]; then
 	# shellcheck disable=SC2153
 	for HOSTFN in $HOSTFNS; do
 		copy_function call_host "$HOSTFN"

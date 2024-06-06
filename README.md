@@ -1,55 +1,66 @@
 # lpc-scripts
 scripts of use on the cmslpc cluster
 
-## `pipe_condor.sh`
+## `call_host.sh`
 
-HTCondor commands are installed on cmslpc interactive nodes, but by default they are not accessible inside containers.
+Many commands are installed on cmslpc interactive nodes but are not accessible inside containers.
 
-The script [pipe_condor.sh](./pipe_condor.sh) enables calling HTCondor commands *on the host node* from inside a container.
+The script [call_host.sh](./call_host.sh) enables calling these commands *on the host node* from inside a container.
+
+This is particularly useful for HTCondor commands and EOS commands, among others.
 
 ### Usage
 
-In your `.bashrc`:
+In your `.bashrc` or `.bash_profile`:
 ```bash
-source pipe_condor.sh
+source call_host.sh
 ```
 
-Whenever you edit your `.bashrc`, you should log out and log back in for the changes to take effect.
+Whenever you edit your `.bashrc` or `.bash_profile`, you should log out and log back in for the changes to take effect.
 
-To check if this line in your `.bashrc` is being executed when you log in, make sure the following command shows some output:
+To check if this line in your `.bashrc` or `.bash_profile` is being executed when you log in, make sure the following command shows some output:
 ```bash
 echo $APPTAINERENV_APPTAINER_ORIG
 ```
 
-Starting a container (the arguments are necessary for your `.bashrc` to be loaded inside the container):
+To start a container with this in your `.bashrc`:
 ```bash
-cmssw-el7 -- /bin/bash
+cmssw-el7 [options] -- /bin/bash
+```
+
+To start a container with this in your `.bash_profile`:
+```bash
+cmssw-el7 [options] -- /bin/bash -l
 ```
 
 ### Details
 
 What happens:
 * The `apptainer` command is replaced with a function that will create a set of pipes on the host node before running `apptainer`.
-* Inside the container, all executables starting with `condor_` will automatically run on the host node.
+* Inside the container, all executables starting with `condor_` and `eos` will automatically run on the host node.
 * To run other commands on the host node, use `call_host cmd`, where `cmd` is the command you want to run (with any arguments).
 * Nested containers are supported (the enable/disable status (see "Options" just below) is inherited from the top-level container and cannot be changed)
 
 Options:
-* Before sourcing the script in your `.bashrc`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
+* Before sourcing the script in your `.bashrc` or `.bash_profile`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
     ```bash
-    export PIPE_CONDOR_DIR=your_dir
+    export CALL_HOST_DIR=your_dir
     ```
-* If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc`:
+* If you want to run additional executables or functions automatically on the host node, you can add a line like this with a space-separated list (replace the example commands with the commands you want):
     ```bash
-    export PIPE_CONDOR_STATUS=${PIPE_CONDOR_STATUS:=disable}
+    export CALL_HOST_USERFNS="display gs"
+    ```
+* If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc` or `.bash_profile`:
+    ```bash
+    export CALL_HOST_STATUS=${CALL_HOST_STATUS:=disable}
     ```
     Then to enable it temporarily:
     ```bash
-    PIPE_CONDOR_STATUS=enable cmssw-el7 ...
+    CALL_HOST_STATUS=enable cmssw-el7 ...
     ```
 * Instead, if you have this enabled by default and you want to temporarily disable this for a specific container invocation:
     ```bash
-    PIPE_CONDOR_STATUS=disable cmssw-el7 ...
+    CALL_HOST_STATUS=disable cmssw-el7 ...
     ````
 
 Caveats:
@@ -62,6 +73,11 @@ Caveats:
     ```
     +ApptainerImage = "/path/to/your/container"
     ```
+* Commands that require tty input (such as `nano` or `emacs -nw`) will not work with `call_host`.
+* Calling multiple commands at once with `call_host` can break the pipe if the commands are separated by semicolons and a non-final command fails.
+    The symptom of this will be that subsequent host commands hang, and pressing ctrl+C will give the error message "Interrupted system call".
+    It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
+    To avoid this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
 * CMS connect support is planned, but has not been tested yet.
 
 ## `bind_condor.sh`
