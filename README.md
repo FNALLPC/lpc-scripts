@@ -46,6 +46,10 @@ Options:
     ```bash
     export CALL_HOST_DIR=your_dir
     ```
+* If you want to run additional executables or functions automatically on the host node, you can add a line like this with a space-separated list (replace the example commands with the commands you want):
+    ```bash
+    export CALL_HOST_USERFNS="display gs"
+    ```
 * If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc` or `.bash_profile`:
     ```bash
     export CALL_HOST_STATUS=${CALL_HOST_STATUS:=disable}

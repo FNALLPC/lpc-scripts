@@ -114,6 +114,9 @@ export -f apptainer
 # on host: get list of condor executables
 if [ -z "$APPTAINER_CONTAINER" ]; then
 	export APPTAINERENV_HOSTFNS=$(compgen -c | grep '^condor_\|^eos')
+	if [ -n "$CALL_HOST_USERFNS" ]; then
+		export APPTAINERENV_HOSTFNS="$APPTAINERENV_HOSTFNS $CALL_HOST_USERFNS"
+	fi
 # in container: replace with call_host versions
 elif [ "$CALL_HOST_STATUS" = "enable" ]; then
 	# shellcheck disable=SC2153
