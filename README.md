@@ -74,6 +74,10 @@ Caveats:
     +ApptainerImage = "/path/to/your/container"
     ```
 * Commands that require tty input (such as `nano` or `emacs -nw`) will not work with `call_host`.
+* Calling multiple commands at once with `call_host` can break the pipe if the commands are separated by semicolons and a non-final command fails.
+    The symptom of this will be that subsequent host commands hang, and pressing ctrl+C will give the error message "Interrupted system call".
+    It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
+    To avoid this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
 * CMS connect support is planned, but has not been tested yet.
 
 ## `bind_condor.sh`
