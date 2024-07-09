@@ -10,7 +10,14 @@ elif [[ ! " enable disable " =~ " $CALL_HOST_STATUS " ]]; then
 	export CALL_HOST_STATUS=disable
 fi
 if [ -z "$CALL_HOST_DIR" ]; then
-	export CALL_HOST_DIR=~/nobackup/pipes
+	if [[ "$(uname -a)" == *cms*.fnal.gov* ]]; then
+		export CALL_HOST_DIR=~/nobackup/pipes
+	elif [[ "$(uname -a)" == *.uscms.org* ]]; then
+		export CALL_HOST_DIR=/scratch/`whoami`/pipes
+	else
+		echo "Warning: no default CALL_HOST_DIR for $(uname -a), please set your own manually. disabling"
+		export CALL_HOST_STATUS=disable
+	fi
 fi
 export CALL_HOST_DIR=$(readlink -f "$CALL_HOST_DIR")
 mkdir -p "$CALL_HOST_DIR"
