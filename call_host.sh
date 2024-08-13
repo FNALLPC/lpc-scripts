@@ -1,6 +1,12 @@
 #!/bin/bash
 # shellcheck disable=SC2155
 
+# check for configuration
+CALL_HOST_CONFIG=~/.callhostrc
+if [ -f $CALL_HOST_CONFIG ]; then
+	source $CALL_HOST_CONFIG
+fi
+
 # default values
 # shellcheck disable=SC2076
 if [ -z "$CALL_HOST_STATUS" ]; then

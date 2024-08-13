@@ -11,27 +11,58 @@ This is particularly useful for HTCondor commands and EOS commands, among others
 
 ### Usage
 
-In your `.bashrc` or `.bash_profile`:
+These instructions assume that you have cloned `lpc-scripts` in your home area:
 ```bash
-source call_host.sh
+cd ~
+git clone https://github.com/FNALLPC/lpc-scripts
 ```
+
+#### Manual
+
+1. Before entering the container:
+    ```bash
+    source ~/lpc-scripts/call_host.sh
+    ```
+
+2. Then enter the container:
+    ```bash
+    cmssw-el7
+    ```
+
+3. Inside the container:
+    ```bash
+    source ~/lpc-scripts/call_host.sh
+    ```
+
+Steps 2 and 3 can be combined:
+    ```bash
+    cmssw-el7 -- 'source ~/lpc-scripts/call_host.sh && /bin/bash'
+    ```
+
+#### Automatic
 
 Whenever you edit your `.bashrc` or `.bash_profile`, you should log out and log back in for the changes to take effect.
 
-To check if this line in your `.bashrc` or `.bash_profile` is being executed when you log in, make sure the following command shows some output:
-```bash
-echo $APPTAINERENV_APPTAINER_ORIG
-```
+1. In your `.bashrc` or `.bash_profile`:
+    ```bash
+    source ~/lpc-scripts/call_host.sh
+    ```
+    * To check if this line in your `.bashrc` or `.bash_profile` is being executed when you log in, make sure the following command shows some output:
+       ```bash
+        echo $APPTAINERENV_APPTAINER_ORIG
+        ```
 
-To start a container with this in your `.bashrc`:
-```bash
-cmssw-el7 [options] -- /bin/bash
-```
+2. To start a container with this in your `.bashrc`:
+    ```bash
+    cmssw-el7 [options] -- /bin/bash
+    ```
+    or to start a container with this in your `.bash_profile`:
+    ```bash
+    cmssw-el7 [options] -- /bin/bash -l
+    ```
 
-To start a container with this in your `.bash_profile`:
-```bash
-cmssw-el7 [options] -- /bin/bash -l
-```
+There are many possible permutations of `bash` login scripts.
+If the above options are not working properly for you, you can fall back to the "Manual" approach above.
 
 ### Details
 
@@ -41,16 +72,22 @@ What happens:
 * To run other commands on the host node, use `call_host cmd`, where `cmd` is the command you want to run (with any arguments).
 * Nested containers are supported (the enable/disable status (see "Options" just below) is inherited from the top-level container and cannot be changed)
 
-Options:
-* Before sourcing the script in your `.bashrc` or `.bash_profile`, you can add this line to change the directory where the pipes will be created (the default is `~/nobackup/pipes`):
+### Options
+
+The `export` lines below can be executed manually,
+placed in your `.bashrc` or `.bash_profile`,
+or placed in a file `~/.callhostrc` (automatically detected and sourced by `call_host.sh`).
+
+* Before sourcing the script, you can use this line to change the directory where the pipes will be created:
     ```bash
     export CALL_HOST_DIR=your_dir
     ```
+    The default directory for cmslpc is `~/nobackup/pipes`, and for CMS connect / OSG is ``/scratch/`whoami`/pipes``.
 * If you want to run additional executables or functions automatically on the host node, you can add a line like this with a space-separated list (replace the example commands with the commands you want):
     ```bash
     export CALL_HOST_USERFNS="display gs"
     ```
-* If you want to disable this by default and only enable it on the fly, put this line in your `.bashrc` or `.bash_profile`:
+* If you want to disable this by default and only enable it on the fly, use the following syntax (which sets the variable value to `disable` only if it is currently unset, in order to facilitate temporary enabling):
     ```bash
     export CALL_HOST_STATUS=${CALL_HOST_STATUS:=disable}
     ```
@@ -63,7 +100,8 @@ Options:
     CALL_HOST_STATUS=disable cmssw-el7 ...
     ````
 
-Caveats:
+### Caveats
+
 * cmslpc autodetection of the correct operating system for jobs is currently based on the host OS. Therefore, if you are submitting jobs in a container with a different OS, you will have to manually specify in your JDL file (the `X` in `condor_submit X`):
     ```
     +DesiredOS = SL7
