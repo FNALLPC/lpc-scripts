@@ -3,11 +3,14 @@ scripts of use on the cmslpc cluster
 
 ## `call_host.sh`
 
-Many commands are installed on cmslpc interactive nodes but are not accessible inside containers.
+Many commands are installed on interactive nodes but are not accessible inside containers.
 
 The script [call_host.sh](./call_host.sh) enables calling these commands *on the host node* from inside a container.
 
 This is particularly useful for HTCondor commands and EOS commands, among others.
+
+Support is currently guaranteed for the cmslpc cluster at Fermilab, and the CMS Connect and OSG clusters hosted at UChicago.
+This script may also work on other clusters, such as lxplus at CERN.
 
 ### Usage
 
@@ -83,6 +86,7 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     export CALL_HOST_DIR=your_dir
     ```
     The default directory for cmslpc is `~/nobackup/pipes`, and for CMS connect / OSG is ``/scratch/`whoami`/pipes``.
+    For other clusters, you must specify the directory (no other programmed defaults are currently provided).
 * If you want to run additional executables or functions automatically on the host node, you can add a line like this with a space-separated list (replace the example commands with the commands you want):
     ```bash
     export CALL_HOST_USERFNS="display gs"
@@ -116,7 +120,6 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     The symptom of this will be that subsequent host commands hang, and pressing ctrl+C will give the error message "Interrupted system call".
     It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
     To avoid this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
-* CMS connect support is planned, but has not been tested yet.
 
 ## `bind_condor.sh`
 
