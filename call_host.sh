@@ -24,11 +24,11 @@ export CALL_HOST_DIR=$(readlink -f "$CALL_HOST_DIR_ORIG")
 if [ -z "$CALL_HOST_DIR" ]; then
 	echo "Warning: readlink -f failed for CALL_HOST_DIR $CALL_HOST_DIR_ORIG. disabling"
 	export CALL_HOST_STATUS=disable
-elif [ ! -d "$CALL_HOST_DIR" ]; then
-	echo "Warning: specified dir CALL_HOST_DIR $CALL_HOST_DIR does not exist. disabling"
+fi
+mkdir -p "$CALL_HOST_DIR"
+if [ ! -d "$CALL_HOST_DIR" ]; then
+	echo "Warning: could not create specified dir CALL_HOST_DIR $CALL_HOST_DIR. disabling"
 	export CALL_HOST_STATUS=disable
-else
-	mkdir -p "$CALL_HOST_DIR"
 fi
 # ensure the pipe dir is bound
 export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${CALL_HOST_DIR}
