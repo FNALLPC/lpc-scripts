@@ -104,14 +104,23 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     ```bash
     export CALL_HOST_STATUS=${CALL_HOST_STATUS:=disable}
     ```
-    Then to enable it temporarily:
+    Use the dedicated toggle to enable it for the rest of your session (or until another toggle is called):
+    ```bash
+    call_host_enable
+    ```
+    or just enable it for one container invocation:
     ```bash
     CALL_HOST_STATUS=enable cmssw-el7 ...
     ```
-* Instead, if you have this enabled by default and you want to temporarily disable this for a specific container invocation:
+* Instead, if you have this enabled by default and want to disable it on the fly:  
+    Use the dedicated toggle to disable it for the rest of your session (or until another toggle is called):
+    ```bash
+    call_host_disable
+    ```
+    or just disable it for one container invocation:
     ```bash
     CALL_HOST_STATUS=disable cmssw-el7 ...
-    ````
+    ```
 
 ### Caveats
 

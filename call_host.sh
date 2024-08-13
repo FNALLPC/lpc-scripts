@@ -40,6 +40,16 @@ fi
 # ensure the pipe dir is bound
 export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${CALL_HOST_DIR}
 
+# enable/disable toggles
+call_host_enable(){
+	export CALL_HOST_STATUS=enable
+}
+export -f call_host_enable
+call_host_disable(){
+	export CALL_HOST_STATUS=disable
+}
+export -f call_host_disable
+
 # concept based on https://stackoverflow.com/questions/32163955/how-to-run-shell-script-on-host-from-docker-container
 
 # execute command sent to host pipe; send output to container pipe; store exit code
