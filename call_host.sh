@@ -3,8 +3,9 @@
 
 # check for configuration
 CALL_HOST_CONFIG=~/.callhostrc
-if [ -f $CALL_HOST_CONFIG ]; then
-	source $CALL_HOST_CONFIG
+if [ -f "$CALL_HOST_CONFIG" ]; then
+    # shellcheck source=/dev/null
+	source "$CALL_HOST_CONFIG"
 fi
 
 # default values
