@@ -12,6 +12,15 @@ This is particularly useful for HTCondor commands and EOS commands, among others
 Support is currently guaranteed for the cmslpc cluster at Fermilab, and the CMS Connect and OSG clusters hosted at UChicago.
 This script may also work on other clusters, such as lxplus at CERN.
 
+### Note
+
+The examples here use the [`cmssw-el7` command](http://cms-sw.github.io/singularity.html). This is a wrapper around Apptainer for CMS-specific use.
+
+For non-CMS use, replace this command with your usual Apptainer command, e.g.:
+```bash
+apptainer exec ... /bin/bash
+```
+
 ### Usage
 
 These instructions assume that you have cloned `lpc-scripts` in your home area:
@@ -111,15 +120,17 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     +DesiredOS = SL7
     ```
     (other possible values are EL8 or EL9)
-* if you are running in a non-RHEL container, then you should manually set a different line in your JDL file:
+* If you are running in a non-CMS container, then you should manually set a different line in your JDL file:
     ```
     +ApptainerImage = "/path/to/your/container"
     ```
+* Using the `ENV()` function in the JDL file may not function as intended, since it will be evaluated on the host node, rather than inside the container with your environment set up.
 * Commands that require tty input (such as `nano` or `emacs -nw`) will not work with `call_host`.
 * Calling multiple commands at once with `call_host` can break the pipe if the commands are separated by semicolons and a non-final command fails.
     The symptom of this will be that subsequent host commands hang, and pressing ctrl+C will give the error message "Interrupted system call".
     It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
     To avoid this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
+* Stopping a command in progress with ctrl+C will also break the pipe (as described in the previous item).
 
 ## `bind_condor.sh`
 
