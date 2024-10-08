@@ -147,6 +147,8 @@ It is also possible to use the HTCondor Python bindings inside a container.
 This requires correctly specifying the HTCondor configuration.
 A simple approach is provided in [bind_condor.sh](./bind_condor.sh).
 
+Support is currently provided for the cmslpc cluster at Fermilab, and the CMS Connect and OSG clusters hosted at UChicago.
+
 ### Usage
 
 In your `.bashrc`:
