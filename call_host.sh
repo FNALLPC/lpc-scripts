@@ -21,6 +21,8 @@ if [ -z "$CALL_HOST_DIR" ]; then
 		export CALL_HOST_DIR=~/nobackup/pipes
 	elif [[ "$(uname -a)" == *.uscms.org* ]] || [[ "$(uname -a)" == *.osg-htc.org* ]] ; then
 		export CALL_HOST_DIR=/scratch/$(whoami)/pipes
+	elif [[ "$(uname -a)" == *lxplus*.cern.ch* ]]; then
+		export CALL_HOST_DIR=/tmp/$(whoami)/pipes
 	else
 		echo "Warning: no default CALL_HOST_DIR for $(uname -a), please set your own manually. disabling"
 		export CALL_HOST_STATUS=disable
