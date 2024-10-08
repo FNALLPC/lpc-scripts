@@ -35,7 +35,9 @@ disable=unexpected-special-method-signature,
 		unsubscriptable-object,
 		broad-except,
 		duplicate-code,
-		too-few-public-methods
+		too-few-public-methods,
+		too-many-positional-arguments,
+		invalid-name
 
 # From https://stackoverflow.com/questions/53465607/pylint-reports-error-for-pycurl-curl-which-is-not-correct
 extension-pkg-allow-list=pycurl
