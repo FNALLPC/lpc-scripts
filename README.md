@@ -179,10 +179,10 @@ scram-venv
 cmsenv
 pip3 install --upgrade pip
 cmsenv
-pip3 install --upgrade htcondor==10.3.0
+pip3 install htcondor
 ```
-In this particular case, it is necessary to upgrade `pip` and install a specific version of the bindings
-because the Python version in `CMSSW_10_6_X` is old (Python 3.6.4).
+In this particular case, it is necessary to upgrade `pip` because the Python version in `CMSSW_10_6_X` is old (Python 3.6.4).
+`pip` should then automatically install a compatible version of the bindings.
 
 **NOTE**: These recipes only install the bindings for Python3. (Python2 was still the default in `CMSSW_10_6_X`.)
 You will need to make sure any scripts using the bindings are compatible with Python3.
