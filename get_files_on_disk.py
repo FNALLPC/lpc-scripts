@@ -11,12 +11,12 @@ def getOS():
     osv = subprocess.check_output(shlex.split(cmd), encoding="utf-8").rstrip()
     return osv
 
-def getHosted(dataset):
+def getHosted(dataset, user):
     """Gets list of files on disk for a dataset, and list of sites along with how many files each site has"""
     osv = getOS()
     rucio_path = f'/cvmfs/cms.cern.ch/rucio/x86_64/rhel{osv}/py3/current'
     os.environ['RUCIO_HOME'] = rucio_path
-    os.environ['RUCIO_ACCOUNT'] = getpass.getuser()
+    os.environ['RUCIO_ACCOUNT'] = user
     full_rucio_path = glob.glob(rucio_path+'/lib/python*.*')[0]
     sys.path.insert(0,full_rucio_path+'/site-packages/')
 
@@ -49,9 +49,9 @@ def getHosted(dataset):
     sys.path.pop(0)
     return filelist, sitelist
 
-def main(dataset, outfile=None, verbose=False):
+def main(dataset, user, outfile=None, verbose=False):
     """Prints file list and site list"""
-    filelist, sitelist = getHosted(dataset)
+    filelist, sitelist = getHosted(dataset, user)
 
     if verbose:
         print("Site list:")
@@ -62,13 +62,15 @@ def main(dataset, outfile=None, verbose=False):
     if outfile is not None: file.close() # pylint: disable=multiple-statements
 
 if __name__=="__main__":
+    default_user = getpass.getuser()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Find all available files (those hosted on disk) for a given dataset",
     )
     parser.add_argument("-o","--outfile",type=str,default=None,help="write to this file instead of stdout")
+    parser.add_argument("-u","--user",type=str,default=default_user,help="username for rucio")
     parser.add_argument("-v","--verbose",default=False,action="store_true",help="print extra information (site list)")
     parser.add_argument("dataset",type=str,help="dataset to query")
     args = parser.parse_args()
 
-    main(args.dataset, outfile=args.outfile, verbose=args.verbose)
+    main(args.dataset, args.user, outfile=args.outfile, verbose=args.verbose)
