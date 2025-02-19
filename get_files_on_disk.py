@@ -11,8 +11,11 @@ def getOS():
     osv = subprocess.check_output(shlex.split(cmd), encoding="utf-8").rstrip()
     return osv
 
-def getHosted(dataset, user):
+def getHosted(dataset, user, allow=None, block=None):
     """Gets list of files on disk for a dataset, and list of sites along with how many files each site has"""
+    if allow is not None and block is not None:
+        raise RuntimeError("Cannot specify both allow list and block list, pick one")
+
     osv = getOS()
     rucio_path = f'/cvmfs/cms.cern.ch/rucio/x86_64/rhel{osv}/py3/current'
     os.environ['RUCIO_HOME'] = rucio_path
@@ -37,7 +40,7 @@ def getHosted(dataset, user):
     filelist = set()
     sitelist = defaultdict(int)
     def sitecond(site):
-        return "_Tape" not in site
+        return ("_Tape" not in site) and (allow is None or site in allow) and (block is None or site not in block)
     for block_group in block_groups:
         reps = list(rep_client.list_replicas([{'scope': 'cms', 'name': block['name']} for block in block_group]))
         for rep in reps:
@@ -49,9 +52,9 @@ def getHosted(dataset, user):
     sys.path.pop(0)
     return filelist, sitelist
 
-def main(dataset, user, outfile=None, verbose=False):
+def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
     """Prints file list and site list"""
-    filelist, sitelist = getHosted(dataset, user)
+    filelist, sitelist = getHosted(dataset, user, allow=allow, block=block)
 
     if verbose:
         print("Site list:")
@@ -65,12 +68,15 @@ if __name__=="__main__":
     default_user = getpass.getuser()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Find all available files (those hosted on disk) for a given dataset",
+        description="Find all available files (those hosted on disk) for a given dataset"
     )
+    site_args = parser.add_mutually_exclusive_group(required=False)
+    site_args.add_argument("-a","--allow",type=str,default=None,nargs='*',help="allow only these sites")
+    site_args.add_argument("-b","--block",type=str,default=None,nargs='*',help="block these sites")
     parser.add_argument("-o","--outfile",type=str,default=None,help="write to this file instead of stdout")
     parser.add_argument("-u","--user",type=str,default=default_user,help="username for rucio")
     parser.add_argument("-v","--verbose",default=False,action="store_true",help="print extra information (site list)")
     parser.add_argument("dataset",type=str,help="dataset to query")
     args = parser.parse_args()
 
-    main(args.dataset, args.user, outfile=args.outfile, verbose=args.verbose)
+    main(args.dataset, args.user, outfile=args.outfile, verbose=args.verbose, allow=args.allow, block=args.block)
