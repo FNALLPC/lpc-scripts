@@ -47,7 +47,8 @@ def getHosted(dataset, user, allow=None, block=None):
         reps = list(rep_client.list_replicas([{'scope': 'cms', 'name': block['name']} for block in block_group]))
         for rep in reps:
             for site,state in rep['states'].items():
-                if rep["name"] == "/store/mc/RunIISummer20ULPrePremix/Neutrino_E-10_gun/PREMIX/UL18_106X_upgrade2018_realistic_v11_L1v1-v2/230006/886356A0-2BF3-E045-8F22-B4E204CF50AB.root":
+                if rep["name"] == "/store/mc/RunIISummer20ULPrePremix/Neutrino_E-10_gun/PREMIX/UL18_106X_upgrade2018_realistic_v11_L1v1-v2/00005/43187DF0-9E2B-8A43-A493-2CD77528929A.root":
+                #if rep["name"] == "/store/mc/RunIISummer20ULPrePremix/Neutrino_E-10_gun/PREMIX/UL18_106X_upgrade2018_realistic_v11_L1v1-v2/230006/886356A0-2BF3-E045-8F22-B4E204CF50AB.root":
                     print(rep)
                     print("------")
                 if state=='AVAILABLE' and sitecond(site):
