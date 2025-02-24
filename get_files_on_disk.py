@@ -61,9 +61,9 @@ def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
     """Prints file list and site list"""
     filelist, sitelist = getHosted(dataset, user, allow=allow, block=block)
 
-    if verbose:
-        print("Site list:")
-        print("\n".join(f'{k}: {v}' for k,v in sitelist.items()))
+    #if verbose:
+    #    print("Site list:")
+    #    print("\n".join(f'{k}: {v}' for k,v in sitelist.items()))
     import unicodedata
     #file = open(outfile,'w') if outfile is not None else sys.stdout # pylint: disable=consider-using-with,unspecified-encoding
     #if outfile is not None: file.close() # pylint: disable=multiple-statements
