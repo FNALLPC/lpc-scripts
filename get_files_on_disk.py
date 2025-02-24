@@ -67,7 +67,10 @@ def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
     #if outfile is not None: file.close() # pylint: disable=multiple-statements
     if outfile is not None:
         # pickle
-        pickle.dump(filelist, open(outfile, "wb"))
+        #pickle.dump(filelist, open(outfile, "wb"))
+        # dump using protocol 2
+        with open(outfile, "wb") as f:
+            pickle.dump(filelist, f, protocol=2)
         print("Saved into file", outfile)
 
 if __name__=="__main__":
