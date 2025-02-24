@@ -4,6 +4,8 @@
 
 import os,sys,getpass,warnings,glob,shlex,subprocess,argparse # pylint: disable=multiple-imports
 from collections import defaultdict
+import pickle
+
 
 def getOS():
     """Gets OS version from shell (other methods return host OS when in container)"""
@@ -60,9 +62,13 @@ def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
         print("Site list:")
         print("\n".join(f'{k}: {v}' for k,v in sitelist.items()))
 
-    file = open(outfile,'w') if outfile is not None else sys.stdout # pylint: disable=consider-using-with,unspecified-encoding
-    print("\n".join(filelist), file=file)
-    if outfile is not None: file.close() # pylint: disable=multiple-statements
+    #file = open(outfile,'w') if outfile is not None else sys.stdout # pylint: disable=consider-using-with,unspecified-encoding
+    print("\n".join(filelist))
+    #if outfile is not None: file.close() # pylint: disable=multiple-statements
+    if outfile is not None:
+        # pickle
+        pickle.dump(filelist, open(outfile, "wb"))
+        print("Saved into file", outfile)
 
 if __name__=="__main__":
     default_user = getpass.getuser()
