@@ -5,6 +5,12 @@
 import os,sys,getpass,warnings,glob,shlex,subprocess,argparse # pylint: disable=multiple-imports
 from collections import defaultdict
 
+# prevent this script from ever being used in a batch job
+# to avoid DDOS of Rucio
+if "_CONDOR_SCRATCH_DIR" in os.environ:
+    print("Error: this script cannot be used in batch jobs")
+    sys.exit(1)
+
 def getOS():
     """Gets OS version from shell (other methods return host OS when in container)"""
     cmd = r"sed -nr 's/[^0-9]*([0-9]+).*/\1/p' /etc/redhat-release"
