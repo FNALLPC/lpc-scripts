@@ -70,7 +70,7 @@ def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
         #pickle.dump(filelist, open(outfile, "wb"))
         # dump using protocol 2
         with open(outfile, "wb") as f:
-            pickle.dump(filelist, f, protocol=2)
+            pickle.dump(list(filelist), f, protocol=2)
         print("Saved into file", outfile)
 
 if __name__=="__main__":
