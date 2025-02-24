@@ -61,7 +61,7 @@ def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
     if verbose:
         print("Site list:")
         print("\n".join(f'{k}: {v}' for k,v in sitelist.items()))
-
+    import unicodedata
     #file = open(outfile,'w') if outfile is not None else sys.stdout # pylint: disable=consider-using-with,unspecified-encoding
     print("\n".join(filelist))
     #if outfile is not None: file.close() # pylint: disable=multiple-statements
@@ -70,8 +70,9 @@ def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
         #pickle.dump(filelist, open(outfile, "wb"))
         # dump using protocol 2
         with open(outfile, "wb") as f:
-            pickle.dump(list(filelist), f, protocol=2)
+            pickle.dump([unicodedata.normalize('NFC', x) for x in list(filelist)], f, protocol=2)
         print("Saved into file", outfile)
+
 
 if __name__=="__main__":
     default_user = getpass.getuser()
