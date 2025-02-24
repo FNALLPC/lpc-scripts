@@ -47,6 +47,9 @@ def getHosted(dataset, user, allow=None, block=None):
         reps = list(rep_client.list_replicas([{'scope': 'cms', 'name': block['name']} for block in block_group]))
         for rep in reps:
             for site,state in rep['states'].items():
+                if rep["name"] == "/store/mc/RunIISummer20ULPrePremix/Neutrino_E-10_gun/PREMIX/UL18_106X_upgrade2018_realistic_v11_L1v1-v2/230006/886356A0-2BF3-E045-8F22-B4E204CF50AB.root":
+                    print(rep)
+                    print("------")
                 if state=='AVAILABLE' and sitecond(site):
                     filelist.add(rep['name'])
                     sitelist[site] += 1
@@ -63,15 +66,15 @@ def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
         print("\n".join(f'{k}: {v}' for k,v in sitelist.items()))
     import unicodedata
     #file = open(outfile,'w') if outfile is not None else sys.stdout # pylint: disable=consider-using-with,unspecified-encoding
-    print("\n".join(filelist))
     #if outfile is not None: file.close() # pylint: disable=multiple-statements
     if outfile is not None:
         # pickle
         #pickle.dump(filelist, open(outfile, "wb"))
         # dump using protocol 2
         with open(outfile, "wb") as f:
-            pickle.dump([unicodedata.normalize('NFC', x) for x in list(filelist)], f, protocol=2)
+            pickle.dump([x.encode('utf-8') for x in list(filelist)], f, protocol=2)
         print("Saved into file", outfile)
+    else: print("\n".join(filelist))
 
 
 if __name__=="__main__":
