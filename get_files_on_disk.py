@@ -17,17 +17,21 @@ def getOS():
     osv = subprocess.check_output(shlex.split(cmd), encoding="utf-8").rstrip()
     return osv
 
-def getHosted(dataset, user, allow=None, block=None):
-    """Gets list of files on disk for a dataset, and list of sites along with how many files each site has"""
-    if allow is not None and block is not None:
-        raise RuntimeError("Cannot specify both allow list and block list, pick one")
-
+def getRucio(user):
+    """Adds Rucio libraries to python path with requisite environment variables"""
     osv = getOS()
     rucio_path = f'/cvmfs/cms.cern.ch/rucio/x86_64/rhel{osv}/py3/current'
     os.environ['RUCIO_HOME'] = rucio_path
     os.environ['RUCIO_ACCOUNT'] = user
     full_rucio_path = glob.glob(rucio_path+'/lib/python*.*')[0]
     sys.path.insert(0,full_rucio_path+'/site-packages/')
+
+def getHosted(dataset, user, allow=None, block=None):
+    """Gets list of files on disk for a dataset, and list of sites along with how many files each site has"""
+    if allow is not None and block is not None:
+        raise RuntimeError("Cannot specify both allow list and block list, pick one")
+
+    getRucio(user)
 
     warnings.filterwarnings("ignore", message=".*cryptography.*")
     from rucio.client.client import Client # pylint: disable=import-error,import-outside-toplevel
