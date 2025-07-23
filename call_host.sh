@@ -19,7 +19,7 @@ fi
 if [ -z "$CALL_HOST_DIR" ]; then
 	if [[ "$(uname -a)" == *cms*.fnal.gov* ]]; then
 		export CALL_HOST_DIR=~/nobackup/pipes
-	elif [[ "$(uname -a)" == *.uscms.org* ]] || [[ "$(uname -a)" == *.osg-htc.org* ]] ; then
+	elif [[ "$(uname -a)" == *.uscms.org* ]] || [[ "$(uname -a)" == *.osg-htc.org* ]] || [[ "$(uname -a)" == *cmscon.hep.wisc.edu* ]]; then
 		export CALL_HOST_DIR=/scratch/$(whoami)/pipes
 	elif [[ "$(uname -a)" == *lxplus*.cern.ch* ]]; then
 		export CALL_HOST_DIR=/tmp/$(whoami)/pipes

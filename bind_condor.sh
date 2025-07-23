@@ -29,7 +29,7 @@ LXP_CONDOR_LOCAL=(/etc/condor/config.d /usr/bin/myschedd.sh /usr/bin/myschedd /e
 if [[ "$(uname -a)" == *cms*.fnal.gov* ]]; then
 	bind_if_exists ${LPC_CONDOR_CONFIG} ${LPC_CONDOR_LOCAL}:${LPC_CONDOR_LOCAL}.orig "${COMMAND_PATH}":${LPC_CONDOR_LOCAL}
 	export APPTAINERENV_CONDOR_CONFIG=${LPC_CONDOR_CONFIG}
-elif [[ "$(uname -a)" == *.uscms.org* ]] || [[ "$(uname -a)" == *.osg-htc.org* ]]; then
+elif [[ "$(uname -a)" == *.uscms.org* ]] || [[ "$(uname -a)" == *.osg-htc.org* ]] || [[ "$(uname -a)" == *cmscon.hep.wisc.edu* ]]; then
 	bind_if_exists ${OSG_CONDOR_CONFIG} "${OSG_CONDOR_LOCAL[@]}"
 	export APPTAINERENV_CONDOR_CONFIG=${OSG_CONDOR_CONFIG}
 elif [[ "$(uname -a)" == *lxplus*.cern.ch* ]]; then
