@@ -62,11 +62,48 @@ def getHosted(dataset, user, allow=None, block=None):
     sys.path.pop(0)
     return filelist, sitelist
 
-def main(dataset, user, outfile=None, verbose=False, allow=None, block=None):
-    """Prints file list and site list"""
-    filelist, sitelist = getHosted(dataset, user, allow=allow, block=block)
+def getCache(dataset, verbose=False):
+    """Gets cached file lists from cvmfs for pileup samples"""
+    filelist = None
+    cache_dir = "/cvmfs/cms.cern.ch/offcomp-prod/premixPUlist/"
+    cache_map_file = "pileup_mapping.txt"
+    cache_map_path = os.path.join(cache_dir, cache_map_file)
+    if os.path.isfile(cache_map_path):
+        cache_map = {}
+        with open(cache_map_path, 'r') as mapfile: # pylint: disable=unspecified-encoding
+            for line in mapfile:
+                line = line.rstrip()
+                linesplit = line.split()
+                if len(linesplit)==2:
+                    cache_map[linesplit[0]] = linesplit[1]
 
-    if verbose:
+        if dataset in cache_map:
+            cache_file = cache_map[dataset]
+            cache_file_path = os.path.join(cache_dir, cache_file)
+            if verbose:
+                print(f"Loading from cache: {cache_file_path}")
+            with open(cache_file_path, 'r') as cfile: # pylint: disable=unspecified-encoding
+                filelist = [line.rstrip() for line in cfile]
+
+    return filelist
+
+def main(dataset, user, outfile=None, verbose=False, allow=None, block=None, cache=True):
+    """Prints file list and site list"""
+    filelist = None
+    sitelist = None
+
+    if cache:
+        if not allow and not block:
+            filelist = getCache(dataset, verbose)
+        # cache does not consider allow or block lists, so disable if they are requested
+        else:
+            if verbose:
+                print("Disabling cache because allow and/or block lists are specified")
+
+    if not filelist:
+        filelist, sitelist = getHosted(dataset, user, allow=allow, block=block)
+
+    if verbose and sitelist:
         print("Site list:")
         print("\n".join(f'{k}: {v}' for k,v in sitelist.items()))
 
@@ -86,7 +123,8 @@ if __name__=="__main__":
     parser.add_argument("-o","--outfile",type=str,default=None,help="write to this file instead of stdout")
     parser.add_argument("-u","--user",type=str,default=default_user,help="username for rucio")
     parser.add_argument("-v","--verbose",default=False,action="store_true",help="print extra information (site list)")
+    parser.add_argument("--no-cache",default=False,action="store_true",help="do not use cached file lists from cvmfs")
     parser.add_argument("dataset",type=str,help="dataset to query")
     args = parser.parse_args()
 
-    main(args.dataset, args.user, outfile=args.outfile, verbose=args.verbose, allow=args.allow, block=args.block)
+    main(args.dataset, args.user, outfile=args.outfile, verbose=args.verbose, allow=args.allow, block=args.block, cache=not args.no_cache)
