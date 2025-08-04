@@ -4,7 +4,7 @@
 # check for configuration
 CALL_HOST_CONFIG=~/.callhostrc
 if [ -f "$CALL_HOST_CONFIG" ]; then
-    # shellcheck source=/dev/null
+	# shellcheck source=/dev/null
 	source "$CALL_HOST_CONFIG"
 fi
 
@@ -89,6 +89,8 @@ export -f startpipe
 
 # sends function to host, then listens for output, and provides exit code from function
 call_host(){
+	# disable ctrl+c to prevent "Interrupted system call"
+	trap "" SIGINT
 	if [ "${FUNCNAME[0]}" = "call_host" ]; then
 		FUNCTMP=
 	else

@@ -139,7 +139,8 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     The symptom of this will be that subsequent host commands hang, and pressing ctrl+C will give the error message "Interrupted system call".
     It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
     To avoid this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
-* Stopping a command in progress with ctrl+C will also break the pipe (as described in the previous item).
+* Stopping a command in progress with ctrl+C is disabled (to avoid breaking the pipe as described in the previous item).
+* Suspending a command with ctrl+Z is not supported and may break the session.
 
 ## `bind_condor.sh`
 
