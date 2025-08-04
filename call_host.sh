@@ -4,7 +4,7 @@
 # check for configuration
 CALL_HOST_CONFIG=~/.callhostrc
 if [ -f "$CALL_HOST_CONFIG" ]; then
-    # shellcheck source=/dev/null
+	# shellcheck source=/dev/null
 	source "$CALL_HOST_CONFIG"
 fi
 
@@ -58,11 +58,14 @@ export -f call_host_disable
 listenhost(){
 	# stop when host pipe is removed
 	while [ -e "$1" ]; do
-		# "|| true" is necessary to stop "Interrupted system call"
-		# must be *inside* eval to ensure EOF once command finishes
+		# "|| true" is necessary to stop "Interrupted system call" when running commands like 'command1; command2; command3'
 		# now replaced with assignment of exit code to local variable (which also returns true)
+		# using { bash -c ... } >& is less fragile than eval
 		tmpexit=0
-		eval "$(cat "$1") || tmpexit="'$?' >& "$2"
+		cmd="$(cat "$1")"
+		{
+			bash -c "$cmd" || tmpexit=$?
+		} >& "$2"
 		echo "$tmpexit" > "$3"
 	done
 }
@@ -89,6 +92,8 @@ export -f startpipe
 
 # sends function to host, then listens for output, and provides exit code from function
 call_host(){
+	# disable ctrl+c to prevent "Interrupted system call"
+	trap "" SIGINT
 	if [ "${FUNCNAME[0]}" = "call_host" ]; then
 		FUNCTMP=
 	else
