@@ -140,6 +140,7 @@ apptainer(){
 		if [ -z "$APPTAINER_CONTAINER" ]; then
 			pkill -P "$LISTENER"
 			rm -f "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE"
+			kill "$LISTENER"
 		fi
 		)
 	fi
