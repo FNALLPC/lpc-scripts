@@ -58,11 +58,14 @@ export -f call_host_disable
 listenhost(){
 	# stop when host pipe is removed
 	while [ -e "$1" ]; do
-		# "|| true" is necessary to stop "Interrupted system call"
-		# must be *inside* eval to ensure EOF once command finishes
+		# "|| true" is necessary to stop "Interrupted system call" when running commands like 'command1; command2; command3'
 		# now replaced with assignment of exit code to local variable (which also returns true)
+		# using { bash -c ... } >& is less fragile than eval
 		tmpexit=0
-		eval "$(cat "$1") || tmpexit="'$?' >& "$2"
+		cmd="$(cat "$1")"
+		{
+			bash -c "$cmd" || tmpexit=$?
+		} >& "$2"
 		echo "$tmpexit" > "$3"
 	done
 }
@@ -142,7 +145,6 @@ apptainer(){
 		if [ -z "$APPTAINER_CONTAINER" ]; then
 			pkill -P "$LISTENER"
 			rm -f "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE"
-			kill "$LISTENER"
 		fi
 		)
 	fi

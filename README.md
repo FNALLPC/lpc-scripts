@@ -135,10 +135,9 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     ```
 * Using the `ENV()` function in the JDL file may not function as intended, since it will be evaluated on the host node, rather than inside the container with your environment set up.
 * Commands that require tty input (such as `nano` or `emacs -nw`) will not work with `call_host`.
-* Calling multiple commands at once with `call_host` can break the pipe if the commands are separated by semicolons and a non-final command fails.
-    The symptom of this will be that subsequent host commands hang, and pressing ctrl+C will give the error message "Interrupted system call".
+* Occasionally, if a command fails (especially when calling multiple commands separated by semicolons), the pipe will break and the terminal will appear to hang. The message "Interrupted system call" may be shown.
     It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
-    To avoid this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
+    To prevent this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
 * Stopping a command in progress with ctrl+C is disabled (to avoid breaking the pipe as described in the previous item).
 * Suspending a command with ctrl+Z is not supported and may break the session.
 
