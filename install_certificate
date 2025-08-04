@@ -6,10 +6,10 @@ proxy_exists(){
         if [ "$1" != "N" ] && [ "$1" != "Y" ]; then
 			echo -e "\tUnknown option \"$1\". You must specify [Y/N] to delete or keep any existing .pem files."
 			return 0
-		elif [ -a "$HOME/.globus/usercert.pem" ] && [ -a "$HOME/.globus/userkey.pem" ] && [ "$1" == "N" ]; then
+		elif [ -e "$HOME/.globus/usercert.pem" ] && [ -e "$HOME/.globus/userkey.pem" ] && [ "$1" == "N" ]; then
             echo -e "\tCertificates exist. Doing nothing."
             return 0
-        elif [ -a "$HOME/.globus/usercert.pem" ] && [ -a "$HOME/.globus/userkey.pem" ] && [ "$1" == "Y" ]; then
+        elif [ -e "$HOME/.globus/usercert.pem" ] && [ -e "$HOME/.globus/userkey.pem" ] && [ "$1" == "Y" ]; then
 			echo -e "\tCertificates exist, but removing them in order to replace them."
 			rm -f "$HOME/.globus/usercert.pem"
 			rm -f "$HOME/.globus/userkey.pem"

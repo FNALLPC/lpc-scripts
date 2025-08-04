@@ -6,10 +6,10 @@ proxy_exists(){
         if [ "$1" != "N" ] && [ "$1" != "Y" ]; then
 			echo -e "\tUnknown option \"$1\". You must specify [Y/N] to delete or keep any existing .pem/.key files."
 			return 0
-		elif [ -a "$2/myCert.pem" ] && [ -a "$2/myCert.key" ] && [ "$1" == "N" ]; then
+		elif [ -e "$2/myCert.pem" ] && [ -e "$2/myCert.key" ] && [ "$1" == "N" ]; then
             echo -e "\tCertificates/keys exist. Doing nothing."
             return 0
-        elif [ -a "$2/myCert.pem" ] && [ -a "$2/myCert.key" ] && [ "$1" == "Y" ]; then
+        elif [ -e "$2/myCert.pem" ] && [ -e "$2/myCert.key" ] && [ "$1" == "Y" ]; then
 			echo -e "\tCertificates/keys exist, but removing them in order to replace them."
 			rm -f "$2/myCert.pem"
 			rm -f "$2/myCert.key"
