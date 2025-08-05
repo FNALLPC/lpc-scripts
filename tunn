@@ -1,0 +1,217 @@
+#!/bin/bash
+
+# helper functions
+
+tunn_check_op() {
+	if [ "$TUNN_OP" != "$1" ]; then
+		usage 1
+	fi
+}
+
+tunn_echo() {
+	if [ "$TUNN_VERBOSE" == "true" ]; then
+		echo "$@"
+	fi
+}
+
+tunn_read_impl() {
+	# get list of tunnels
+	readarray -t TUNN_LIST < "$TUNN_LISTFILE"
+	export TUNN_LIST
+}
+
+tunn_update() {
+	tunn_read_impl
+	# clear list of tunnels
+	: > "$TUNN_LISTFILE"
+	# write open tunnels back into list
+	for ((i=0; i < ${#TUNN_LIST[@]}; i++)); do
+		tunn_entry $i
+		if ssh $TUNN_DEST -S "$TUNN_SOCKETNAME" -O check >&/dev/null; then
+			echo "${TUNN_LIST[$i]}" >> "$TUNN_LISTFILE"
+		else
+			tunn_echo "Removing dead tunnel: ${TUNN_LIST[$i]}"
+			rm "$TUNN_SOCKETNAME" >&/dev/null
+		fi
+	done
+	unset TUNN_LIST
+}
+
+tunn_read() {
+	if [ -z "$TUNN_UNCLEAN" ]; then
+		tunn_read_impl
+		tunn_update
+	fi
+	tunn_read_impl
+}
+
+tunn_entry() {
+	ENTRY="${TUNN_LIST[$1]}"
+	# split, respecting quotes
+	declare -a "ENTRY_ARR=($ENTRY)"
+
+	# reconstruct command based on output format
+	export TUNN_SOCKETNAME="${ENTRY_ARR[0]}"
+	export TUNN_PORT="${ENTRY_ARR[1]}"
+	export TUNN_DEST="${ENTRY_ARR[2]}"
+}
+
+# operations
+
+tunn_make() {
+	TUNN_DEST="$@"
+	if [ -z "$TUNN_DEST" ]; then
+		usage 1
+	fi
+
+	# generate a random name for socket
+	TUNN_SOCKETNUM=$(uuidgen)
+	TUNN_SOCKETNAME="$TUNN_PREFIX"_"$TUNN_SOCKETNUM"
+
+	# execute tunnel command
+	ssh $TUNN_DEST -N -D $TUNN_PORT -f -M -S "$TUNN_SOCKETNAME" 2>/dev/null
+	TUNN_EXIT=$?
+
+	# add to list of tunnels
+	if [ $TUNN_EXIT -eq 0 ]; then
+		echo "\"$TUNN_SOCKETNAME\" $TUNN_PORT \"$TUNN_DEST\"" >> "$TUNN_LISTFILE"
+		tunn_echo "Tunnel ready, port: $TUNN_PORT"
+	else
+		echo "Could not create tunnel (exit code $TUNN_EXIT)"
+		exit $TUNN_EXIT
+	fi
+}
+
+tunn_list() {
+	if [ -n "$1" ]; then
+		usage 1
+	fi
+
+	tunn_read
+	if [ ${#TUNN_LIST[@]} -eq 0 ]; then
+		return
+	fi
+	echo "index: socket port destination"
+	for ((i=0; i < ${#TUNN_LIST[@]}; i++)); do
+		echo "$i: ${TUNN_LIST[$i]}"
+	done
+}
+
+tunn_kill() {
+	INDEX="$1"
+	if [ -z "$INDEX" ]; then
+		usage 1
+	fi
+
+	# get this tunnel
+	tunn_read
+	if [ $INDEX -lt ${#TUNN_LIST[@]} ]; then
+		tunn_entry $INDEX
+	else
+		echo "Tunnel index $INDEX not found"
+		exit 2
+	fi
+
+	# execute kill command
+	ssh $TUNN_DEST -S "$TUNN_SOCKETNAME" -O exit
+	tunn_echo "Killed tunnel: ${TUNN_LIST[$INDEX]}"
+
+	# update list
+	sed -i "$((INDEX+1))"d "$TUNN_LISTFILE"
+}
+
+# defaults
+TUNN_LISTFILE=~/.tunnlist
+: ${TUNN_CONFIG:=~/.tunnconfig}
+TUNN_SOCKETNAME=""
+TUNN_DEST=""
+TUNN_INDEX=""
+TUNN_UNCLEAN=""
+
+# get config defaults
+if [ -e "$TUNN_CONFIG" ]; then
+	source "$TUNN_CONFIG"
+fi
+: ${TUNN_PREFIX:=~/.tsock}
+UTMP=$(id -u)
+UTMP=${UTMP:0-3}
+: ${TUNN_PORT:=8${UTMP}}
+: ${TUNN_VERBOSE:=false}
+
+declare -A TUNN_INVERT
+TUNN_INVERT[true]=false
+TUNN_INVERT[false]=true
+
+usage() {
+	ECHO="echo -e"
+	$ECHO "tunn [operation] [options] [arguments]"
+	$ECHO
+	$ECHO "Default settings are obtained from the config file at ${TUNN_CONFIG}."
+	$ECHO "To override the config file location, put this in your .bashrc or other login file:"
+	$ECHO "\texport TUNN_CONFIG=/my/preferred/file"
+	$ECHO "The available config variables are: TUNN_PREFIX, TUNN_PORT, TUNN_VERBOSE."
+	$ECHO "Their values should be specified in the config file using bash syntax, e.g.:"
+	$ECHO "\tTUNN_PORT=8XXX"
+	$ECHO "(If TUNN_PORT is not specified in the config file or via the command line option,"
+	$ECHO "the default value is taken from the last three digits of your UID.)"
+	$ECHO
+	$ECHO "Operations:"
+	$ECHO
+	$ECHO "make       \t make new tunnel"
+	$ECHO "\t-n [name]     \t tunnel socket name prefix (default: ${TUNN_PREFIX})"
+	$ECHO "\t-p [port]     \t tunnel port (default: $TUNN_PORT)"
+	$ECHO "\t[destination] \t ssh destination for tunnel (required)"
+	$ECHO
+	$ECHO "list       \t list open tunnels"
+	$ECHO
+	$ECHO "kill       \t kill specified tunnel"
+	$ECHO "\t[index]       \t index of tunnel (required)"
+	$ECHO
+	$ECHO "Common options:"
+	$ECHO "-u         \t (unclean) do not auto-remove closed tunnels from list"
+	$ECHO "-v         \t toggle verbosity (default: $TUNN_VERBOSE)"
+	$ECHO "-h         \t print this message and exit"
+	exit $1
+}
+
+# get operation
+TUNN_OP=$1
+shift 1
+
+TUNN_OPFN=""
+case "$TUNN_OP" in
+	make) TUNN_OPFN=tunn_make
+	;;
+	list) TUNN_OPFN=tunn_list
+	;;
+	kill) TUNN_OPFN=tunn_kill
+	;;
+	*) usage 1
+	;;
+esac
+
+while getopts "n:p:uvh" opt; do
+	case "$opt" in
+		n) tunn_check_op make; TUNN_PREFIX="$OPTARG"
+		;;
+		p) tunn_check_op make; TUNN_PORT="$OPTARG"
+		;;
+		u) TUNN_UNCLEAN=true
+		;;
+		v) TUNN_VERBOSE="${TUNN_INVERT[$TUNN_VERBOSE]}"
+		;;
+		h) usage 0
+		;;
+	esac
+done
+
+# ensure list file exists
+if [ ! -e "$TUNN_LISTFILE" ]; then
+	touch "$TUNN_LISTFILE"
+fi
+
+# get args for operation (if any)
+shift $(($OPTIND - 1))
+
+# execute operation
+$TUNN_OPFN "$@"

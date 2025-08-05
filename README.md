@@ -189,6 +189,75 @@ In this particular case, it is necessary to upgrade `pip` because the Python ver
 **NOTE**: These recipes only install the bindings for Python3. (Python2 was still the default in `CMSSW_10_6_X`.)
 You will need to make sure any scripts using the bindings are compatible with Python3.
 
+## `tunn`
+
+A simple utility to create and manage SSH tunnels.
+
+The basic usage of `tunn` follows this pattern:
+1. `tunn make user@cmslpc-sl9.fnal.gov`
+2. `tunn list`:
+    ```
+    index: socket port command
+    0: "/home/[user]/.tsock_xyz" 8XXX "user@cmslpc-sl9.fnal.gov"
+    ```
+3. `tunn kill 0`:
+    ```
+    Exit request sent.
+    ```
+
+If you have host aliases defined in your `~/.ssh/config` file, you can use them with `tunn`.
+
+### Detailed usage
+
+The configuration and command-line options for `tunn` are described in its usage message:
+```
+tunn [operation] [options] [arguments]
+
+Default settings are obtained from the config file at /home/[user]/.tunnconfig.
+To override the config file location, put this in your .bashrc or other login file:
+    export TUNN_CONFIG=/my/preferred/file
+The available config variables are: TUNN_PREFIX, TUNN_PORT, TUNN_VERBOSE.
+Their values should be specified in the config file using bash syntax, e.g.:
+    TUNN_PORT=8XXX
+(If TUNN_PORT is not specified in the config file or via the command line option,
+the default value is taken from the last three digits of your UID.)
+
+Operations:
+
+make         make new tunnel
+    -n [name]        tunnel socket name prefix (default: /home/[user]/.tsock)
+    -p [port]        tunnel port (default: 8XXX)
+    [destination]    ssh destination for tunnel (required)
+
+list         list open tunnels
+
+kill         kill specified tunnel
+    [index]          index of tunnel (required)
+
+Common options:
+-u           (unclean) do not auto-remove closed tunnels from list
+-v           toggle verbosity (default: false)
+-h           print this message and exit
+```
+
+### Web browser usage
+
+There are addons available for web browsers to route traffic through ssh tunnels.
+[FoxyProxy](https://getfoxyproxy.org/downloads/) is recommended for most browsers (Chrome, Firefox, and derivatives; Safari has [equivalent internal settings](https://help.getfoxyproxy.org/index.php/knowledge-base/how-to-use-your-proxy-services-with-safari/).)
+
+You can add LPC as a proxy server in the "Proxies" tab, with settings as follows:
+* Title: LPC
+* Hostname: localhost
+* Type: SOCKS5
+* Port: [your TUNN_PORT value 8XXX]
+* Proxy by patterns: [blank], "Include", "Wildcard", Title: FNAL, Pattern: \*://\*.fnal.gov/
+
+<details>
+<summary>Firefox example screenshot:</summary>
+
+![Foxyproxy settings screenshot](./docs/foxyproxy_lpc_generic.png)
+</details>
+
 ## Unit and Integration testing
 
 ### Automated
