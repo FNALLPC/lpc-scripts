@@ -1,6 +1,31 @@
 # lpc-scripts
 scripts of use on the cmslpc cluster
 
+Table of Contents
+=================
+
+* [call_host.sh](#call_hostsh)
+   * [Note](#note)
+   * [Usage](#usage)
+      * [Manual](#manual)
+      * [Automatic](#automatic)
+   * [Details](#details)
+   * [Options](#options)
+   * [Caveats](#caveats)
+* [bind_condor.sh](#bind_condorsh)
+   * [Usage](#usage-1)
+   * [Setting up bindings](#setting-up-bindings)
+* [tunn](#tunn)
+   * [Detailed usage](#detailed-usage)
+   * [Web browser usage](#web-browser-usage)
+* [Unit and Integration testing](#unit-and-integration-testing)
+   * [Automated](#automated)
+   * [Manual](#manual-1)
+      * [Bats for Bash scripts](#bats-for-bash-scripts)
+      * [Pytest for Python modules](#pytest-for-python-modules)
+
+<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
+
 ## `call_host.sh`
 
 Many commands are installed on interactive nodes but are not accessible inside containers.
