@@ -27,6 +27,7 @@ tunn_update() {
 	# write open tunnels back into list
 	for ((i=0; i < ${#TUNN_LIST[@]}; i++)); do
 		tunn_entry $i
+		# shellcheck disable=SC2086
 		if ssh $TUNN_DEST -S "$TUNN_SOCKETNAME" -O check >&/dev/null; then
 			echo "${TUNN_LIST[$i]}" >> "$TUNN_LISTFILE"
 		else
@@ -59,7 +60,7 @@ tunn_entry() {
 # operations
 
 tunn_make() {
-	TUNN_DEST="$@"
+	TUNN_DEST="$*"
 	if [ -z "$TUNN_DEST" ]; then
 		usage 1
 	fi
@@ -69,7 +70,8 @@ tunn_make() {
 	TUNN_SOCKETNAME="$TUNN_PREFIX"_"$TUNN_SOCKETNUM"
 
 	# execute tunnel command
-	ssh $TUNN_DEST -N -D $TUNN_PORT -f -M -S "$TUNN_SOCKETNAME" 2>/dev/null
+	# shellcheck disable=SC2086
+	ssh $TUNN_DEST -N -D "$TUNN_PORT" -f -M -S "$TUNN_SOCKETNAME" 2>/dev/null
 	TUNN_EXIT=$?
 
 	# add to list of tunnels
@@ -105,14 +107,15 @@ tunn_kill() {
 
 	# get this tunnel
 	tunn_read
-	if [ $INDEX -lt ${#TUNN_LIST[@]} ]; then
-		tunn_entry $INDEX
+	if [ "$INDEX" -lt ${#TUNN_LIST[@]} ]; then
+		tunn_entry "$INDEX"
 	else
 		echo "Tunnel index $INDEX not found"
 		exit 2
 	fi
 
 	# execute kill command
+	# shellcheck disable=SC2086
 	ssh $TUNN_DEST -S "$TUNN_SOCKETNAME" -O exit
 	tunn_echo "Killed tunnel: ${TUNN_LIST[$INDEX]}"
 
@@ -122,21 +125,21 @@ tunn_kill() {
 
 # defaults
 TUNN_LISTFILE=~/.tunnlist
-: ${TUNN_CONFIG:=~/.tunnconfig}
+: "${TUNN_CONFIG:=~/.tunnconfig}"
 TUNN_SOCKETNAME=""
 TUNN_DEST=""
-TUNN_INDEX=""
 TUNN_UNCLEAN=""
 
 # get config defaults
 if [ -e "$TUNN_CONFIG" ]; then
+	# shellcheck source=/dev/null
 	source "$TUNN_CONFIG"
 fi
-: ${TUNN_PREFIX:=~/.tsock}
+: "${TUNN_PREFIX:=~/.tsock}"
 UTMP=$(id -u)
 UTMP=${UTMP:0-3}
-: ${TUNN_PORT:=8${UTMP}}
-: ${TUNN_VERBOSE:=false}
+: "${TUNN_PORT:=8${UTMP}}"
+: "${TUNN_VERBOSE:=false}"
 
 declare -A TUNN_INVERT
 TUNN_INVERT[true]=false
@@ -171,11 +174,11 @@ usage() {
 	$ECHO "-u         \t (unclean) do not auto-remove closed tunnels from list"
 	$ECHO "-v         \t toggle verbosity (default: $TUNN_VERBOSE)"
 	$ECHO "-h         \t print this message and exit"
-	exit $1
+	exit "$1"
 }
 
 # get operation
-TUNN_OP=$1
+TUNN_OP="$1"
 shift 1
 
 TUNN_OPFN=""
@@ -202,6 +205,8 @@ while getopts "n:p:uvh" opt; do
 		;;
 		h) usage 0
 		;;
+		*) usage 1
+		;;
 	esac
 done
 
@@ -211,7 +216,7 @@ if [ ! -e "$TUNN_LISTFILE" ]; then
 fi
 
 # get args for operation (if any)
-shift $(($OPTIND - 1))
+shift $((OPTIND - 1))
 
 # execute operation
 $TUNN_OPFN "$@"
