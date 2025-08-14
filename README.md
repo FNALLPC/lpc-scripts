@@ -219,11 +219,11 @@ You will need to make sure any scripts using the bindings are compatible with Py
 A simple utility to create and manage SSH tunnels.
 
 The basic usage of `tunn` follows this pattern:
-1. `tunn make user@cmslpc-sl9.fnal.gov`
+1. `tunn make user@cmslpc-el9.fnal.gov`
 2. `tunn list`:
     ```
     index: socket port command
-    0: "/home/[user]/.tsock_xyz" 8XXX "user@cmslpc-sl9.fnal.gov"
+    0: "/home/[user]/.tsock_xyz" 8XXX "user@cmslpc-el9.fnal.gov"
     ```
 3. `tunn kill 0`:
     ```
