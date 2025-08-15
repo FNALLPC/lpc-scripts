@@ -15,6 +15,7 @@ Table of Contents
 * [bind_condor.sh](#bind_condorsh)
    * [Usage](#usage-1)
    * [Setting up bindings](#setting-up-bindings)
+* [get_files_on_disk.py](#get_files_on_diskpy)
 * [tunn](#tunn)
    * [Detailed usage](#detailed-usage)
    * [Web browser usage](#web-browser-usage)
@@ -213,6 +214,45 @@ In this particular case, it is necessary to upgrade `pip` because the Python ver
 
 **NOTE**: These recipes only install the bindings for Python3. (Python2 was still the default in `CMSSW_10_6_X`.)
 You will need to make sure any scripts using the bindings are compatible with Python3.
+
+## `get_files_on_disk.py`
+
+This script automates the process of querying Rucio to find only the files in a CMS data or MC sample that are currently hosted on disk.
+(The most general form of this functionality is not currently available from other CMS database tools such as `dasgoclient`.)
+
+There are two major use cases for this tool:
+1. Finding AOD (or earlier formats such as RECO or RAW) files for testing or development. (AOD samples are not hosted on disk by default, so typically only small subsets of a sample will be transferred to disk for temporary usage.)
+2. Obtaining file lists for premixed pileup samples for private MC production. (Premixed pileup input samples are no longer fully hosted on disk because of resource limitations.)
+
+A fraction of each premixed pileup sample is subscribed to disk by the central production team, and the corresponding list of files is synced to cvmfs.
+By default, this script will just copy this cached information.
+This is the most stable and preferred approach, so only deviate from it if absolutely necessary.
+
+This script should *not* be run in batch jobs, as that can lead to an inadvertent distributed denial of service disruption of the CMS data management system.
+The script will actively try to prevent you from running it in batch jobs.
+Please run the script locally, before submitting your jobs, and send the resulting information as part of the job input files.
+
+The available options for this script are:
+```
+usage: get_files_on_disk.py [-h] [-a [ALLOW ...] | -b [BLOCK ...]] [-o OUTFILE] [-u USER] [-v] [--no-cache] dataset
+
+Find all available files (those hosted on disk) for a given dataset
+
+positional arguments:
+  dataset               dataset to query
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -a [ALLOW ...], --allow [ALLOW ...]
+                        allow only these sites (default: None)
+  -b [BLOCK ...], --block [BLOCK ...]
+                        block these sites (default: None)
+  -o OUTFILE, --outfile OUTFILE
+                        write to this file instead of stdout (default: None)
+  -u USER, --user USER  username for rucio (default: [user])
+  -v, --verbose         print extra information (site list) (default: False)
+  --no-cache            do not use cached file lists from cvmfs (default: False)
+```
 
 ## `tunn`
 
