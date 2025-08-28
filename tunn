@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2223
 
 # helper functions
 
@@ -125,7 +126,7 @@ tunn_kill() {
 
 # defaults
 TUNN_LISTFILE=~/.tunnlist
-: "${TUNN_CONFIG:=~/.tunnconfig}"
+: ${TUNN_CONFIG:=~/.tunnconfig}
 TUNN_SOCKETNAME=""
 TUNN_DEST=""
 TUNN_UNCLEAN=""
@@ -135,11 +136,11 @@ if [ -e "$TUNN_CONFIG" ]; then
 	# shellcheck source=/dev/null
 	source "$TUNN_CONFIG"
 fi
-: "${TUNN_PREFIX:=~/.tsock}"
+: ${TUNN_PREFIX:=~/.tsock}
 UTMP=$(id -u)
 UTMP=${UTMP:0-3}
-: "${TUNN_PORT:=8${UTMP}}"
-: "${TUNN_VERBOSE:=false}"
+: ${TUNN_PORT:=8${UTMP}}
+: ${TUNN_VERBOSE:=false}
 
 declare -A TUNN_INVERT
 TUNN_INVERT[true]=false
