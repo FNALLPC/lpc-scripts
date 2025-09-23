@@ -8,14 +8,21 @@ if [ -f "$CALL_HOST_CONFIG" ]; then
 	source "$CALL_HOST_CONFIG"
 fi
 
+# validation
+call_host_valid(){
+	VAR_TO_VALIDATE="$1"
+	# shellcheck disable=SC2076
+	if [[ ! " enable disable " =~ " ${!VAR_TO_VALIDATE} " ]]; then
+		echo "Warning: unsupported value ${!VAR_TO_VALIDATE} for $VAR_TO_VALIDATE; disabling"
+		eval "export $VAR_TO_VALIDATE=disable"
+	fi
+}
+
 # default values
-# shellcheck disable=SC2076
-if [ -z "$CALL_HOST_STATUS" ]; then
-	export CALL_HOST_STATUS=enable
-elif [[ ! " enable disable " =~ " $CALL_HOST_STATUS " ]]; then
-	echo "Warning: unsupported value $CALL_HOST_STATUS for CALL_HOST_STATUS; disabling"
-	export CALL_HOST_STATUS=disable
-fi
+: ${CALL_HOST_STATUS:=enable}
+call_host_valid CALL_HOST_STATUS
+: ${CALL_HOST_DEBUG:=disable}
+call_host_valid CALL_HOST_DEBUG
 if [ -z "$CALL_HOST_DIR" ]; then
 	if [[ "$(uname -a)" == *cms*.fnal.gov* ]]; then
 		export CALL_HOST_DIR=~/nobackup/pipes
@@ -51,6 +58,22 @@ call_host_disable(){
 	export CALL_HOST_STATUS=disable
 }
 export -f call_host_disable
+# single toggle for debug printouts
+call_host_debug(){
+	if [ "$CALL_HOST_DEBUG" = "enable" ]; then
+		export CALL_HOST_DEBUG=disable
+	else
+		export CALL_HOST_DEBUG=enable
+	fi
+}
+export -f call_host_debug
+# helper for debug printouts
+call_host_debug_print(){
+	if [ "$CALL_HOST_DEBUG" = "enable" ]; then
+		echo "$@"
+	fi
+}
+export -f call_host_debug_print
 
 call_host_plugin_01(){
 	# provide htcondor-specific info in container
@@ -66,7 +89,7 @@ call_host_plugin_01(){
 		if [ -n "$CONDOR_OS_VAL" ]; then
 			echo "export FERMIHTC_OS_OVERRIDE=$CONDOR_OS_VAL;"
 		else
-			echo "echo \"could not determine condor OS from $OS_VERSION\";"
+			call_host_debug_print "echo \"could not determine condor OS from $OS_VERSION\";"
 		fi
 	fi
 }
@@ -83,7 +106,7 @@ listenhost(){
 		# using { bash -c ... } >& is less fragile than eval
 		tmpexit=0
 		cmd="$(cat "$1")"
-#		echo "cmd: $cmd"
+		call_host_debug_print "cmd: $cmd"
 		{
 			bash -c "$cmd" || tmpexit=$?
 		} >& "$2"
