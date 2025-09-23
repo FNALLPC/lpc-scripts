@@ -11,6 +11,7 @@ Table of Contents
       * [Automatic](#automatic)
    * [Details](#details)
    * [Options](#options)
+   * [HTCondor jobs](#htcondor-jobs)
    * [Caveats](#caveats)
 * [bind_condor.sh](#bind_condorsh)
    * [Usage](#usage-1)
@@ -147,10 +148,19 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     ```bash
     CALL_HOST_STATUS=disable cmssw-el7 ...
     ```
+* To enable debug printouts by default:
+    ```bash
+    export CALL_HOST_DEBUG=enable
+    ```
+    or to toggle debug printouts on or off during a session:
+    ```bash
+    call_host_debug
+    ```
+    (if you call this inside a container, it will not silence debug printouts from the host)
 
-### Caveats
+### HTCondor jobs
 
-* cmslpc autodetection of the correct operating system for jobs is currently based on the host OS. Therefore, if you are submitting jobs in a container with a different OS, you will have to manually specify in your JDL file (the `X` in `condor_submit X`):
+* On cmslpc, the container OS will automatically be detected (for RHEL-based containers) and used for HTCondor jobs. To specify the job OS manually instead, include in your JDL file (the `X` in `condor_submit X`):
     ```
     +DesiredOS = SL7
     ```
@@ -160,6 +170,9 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     +ApptainerImage = "/path/to/your/container"
     ```
 * Using the `ENV()` function in the JDL file may not function as intended, since it will be evaluated on the host node, rather than inside the container with your environment set up.
+
+### Caveats
+
 * Commands that require tty input (such as `nano` or `emacs -nw`) will not work with `call_host`.
 * Occasionally, if a command fails (especially when calling multiple commands separated by semicolons), the pipe will break and the terminal will appear to hang. The message "Interrupted system call" may be shown.
     It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
