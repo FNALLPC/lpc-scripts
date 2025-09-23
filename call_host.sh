@@ -52,18 +52,25 @@ call_host_disable(){
 }
 export -f call_host_disable
 
-# provide htcondor-specific info in container
-call_host_condor_os(){
-	OS_VERSION="$1"
-
+call_host_plugin_01(){
+	# provide htcondor-specific info in container
 	declare -A CONDOR_OS
 	CONDOR_OS[7]="SL7"
 	CONDOR_OS[8]="EL8"
 	CONDOR_OS[9]="EL9"
 
-	echo "${CONDOR_OS[$OS_VERSION]}"
+	# todo: only activate if function name (call_host args) includes condor?
+	if [[ "$(uname -a)" == *cms*.fnal.gov* ]]; then
+		OS_VERSION=$(sed -nr 's/[^0-9]*([0-9]+).*/\1/p' /etc/redhat-release 2>&1)
+		CONDOR_OS_VAL="${CONDOR_OS[$OS_VERSION]}"
+		if [ -n "$CONDOR_OS_VAL" ]; then
+			echo "export FERMIHTC_OS_OVERRIDE=$CONDOR_OS_VAL;"
+		else
+			echo "echo \"could not determine condor OS from $OS_VERSION\";"
+		fi
+	fi
 }
-export -f call_host_condor_os
+export -f call_host_plugin_01
 
 # concept based on https://stackoverflow.com/questions/32163955/how-to-run-shell-script-on-host-from-docker-container
 
@@ -114,18 +121,9 @@ call_host(){
 		FUNCTMP="${FUNCNAME[0]}"
 	fi
 
-	# extra environment settings for htcondor on cmslpc
-	# has to be set every time because commands are executed on host in subshell
-	EXTRA=""
-	if [[ "$(uname -a)" == *cms*.fnal.gov* ]]; then
-		OS_VERSION=$(sed -nr 's/[^0-9]*([0-9]+).*/\1/p' /etc/redhat-release 2>&1)
-		CONDOR_OS=$(call_host_condor_os "$OS_VERSION")
-		if [ -n "$CONDOR_OS" ]; then
-			EXTRA="export FERMIHTC_OS_OVERRIDE=$CONDOR_OS;"
-		else
-			EXTRA="echo \"could not determine condor OS from $OS_VERSION\";"
-		fi
-	fi
+	# extra environment settings; set every time because commands are executed on host in subshell
+	# todo: evolve into full plugin system that executes detected functions/executables in order (like config.d)
+	EXTRA="$(call_host_plugin_01)"
 
 	echo "cd $PWD; $EXTRA $FUNCTMP $*" > "$HOSTPIPE"
 	cat < "$CONTPIPE"
