@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC2155
+# shellcheck disable=SC2155,SC2223
 
 # check for configuration
 CALL_HOST_CONFIG=~/.callhostrc
