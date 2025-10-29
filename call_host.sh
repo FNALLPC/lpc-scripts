@@ -9,7 +9,25 @@ if [ -f "$CALL_HOST_CONFIG" ]; then
 fi
 
 # zsh / bash compatibility helpers
-if [ -n "$ZSH_VERSION" ]; then
+is_zsh(){
+	# detect the current shell process name (portable ps usage)
+	if command -v ps >/dev/null 2>&1; then
+		# get last path component if ps returns full path
+		p="$(ps -p $$ -o comm= 2>/dev/null | awk -F/ '{print $NF}')"
+		case "$p" in
+			zsh) return 0 ;;
+		esac
+	fi
+
+	# fallback: check common names for $0 or $ZSH_NAME (login shells may have a leading dash)
+	case "$(basename -- "${ZSH_NAME:-$0}" 2>/dev/null)" in
+		zsh|-zsh) return 0 ;;
+	esac
+
+	return 1
+}
+
+if is_zsh; then
 	# export a function to the environment for child shells (zsh)
 	export_func(){
 		typeset -fx "$1" 2>/dev/null || true
@@ -193,7 +211,7 @@ export_func call_host
 # from https://stackoverflow.com/questions/1203583/how-do-i-rename-a-bash-function
 copy_function() {
 	# portable retrieval of function source and re-definition under a new name
-	if [ -n "$ZSH_VERSION" ]; then
+	if is_zsh; then
 		# zsh: use `functions` to get the definition
 		if functions "$1" >/dev/null 2>&1; then
 			fnsrc="$(functions "$1" 2>/dev/null)"
