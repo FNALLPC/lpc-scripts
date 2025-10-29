@@ -1,4 +1,5 @@
 #!/bin/bash
+# Print each command before executing it (for debugging)
 # shellcheck disable=SC2155,SC2223
 
 # check for configuration
@@ -50,8 +51,12 @@ else
 		eval "declare -A $1"
 	}
 	current_funcname(){
-		# return the current function name (FUNCNAME[0]) in bash
-		echo "${FUNCNAME[0]:-}"
+		# return the caller function name if available (FUNCNAME[1]), otherwise fall back to FUNCNAME[0]
+		if [ -n "${FUNCNAME[1]:-}" ]; then
+			echo "${FUNCNAME[1]}"
+		else
+			echo "${FUNCNAME[0]:-}"
+		fi
 	}
 fi
 
