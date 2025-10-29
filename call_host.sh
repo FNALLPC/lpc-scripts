@@ -101,8 +101,31 @@ if [ ! -d "$CALL_HOST_DIR" ]; then
 	echo "Warning: could not create specified dir CALL_HOST_DIR $CALL_HOST_DIR. disabling"
 	export CALL_HOST_STATUS=disable
 fi
-# ensure the pipe dir is bound
-export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${CALL_HOST_DIR}
+
+# helper: add value to a PATH-like variable only if not already present
+add_path_unique(){
+	# args: varname value [sep]
+	varname="$1"; val="$2"; sep="${3:-:}"
+	# retrieve current value portably
+	cur="$(eval "printf '%s' \"\${${varname}:-}\"")"
+	# if empty, set and export
+	if [ -z "$cur" ]; then
+		eval "export $varname=\"\$val\""
+		return
+	fi
+	# check for whole-element match using separators to avoid substrings
+	case "${sep}${cur}${sep}" in
+		*"${sep}${val}${sep}"*)
+			# already present
+			return
+			;;
+	esac
+	# append with separator
+	eval "export $varname=\"${cur}${sep}${val}\""
+}
+
+# ensure the pipe dir is bound (use comma separator for APPTAINER_BIND)
+add_path_unique APPTAINER_BIND "$CALL_HOST_DIR" ","
 
 # enable/disable toggles
 call_host_enable(){
