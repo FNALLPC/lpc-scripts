@@ -44,7 +44,8 @@ if is_zsh; then
 else
 	# bash
 	export_func(){
-		export -f "$1" 2>/dev/null || true
+		[ -n "$1" ] || return
+		eval "export -f $1" 2>/dev/null || true
 	}
 	declare_assoc(){
 		# create named associative array in bash
