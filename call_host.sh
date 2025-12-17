@@ -1,5 +1,4 @@
 #!/bin/bash
-# Print each command before executing it (for debugging)
 # shellcheck disable=SC2155,SC2223
 
 # check for configuration
@@ -17,6 +16,7 @@ is_zsh(){
 		p="$(ps -p $$ -o comm= 2>/dev/null | awk -F/ '{print $NF}')"
 		case "$p" in
 			zsh) return 0 ;;
+			bash) return 1 ;;
 		esac
 	fi
 
@@ -39,17 +39,26 @@ if is_zsh; then
 	}
 	# get current function name in zsh (be tolerant if indices differ)
 	current_funcname(){
-		echo "${funcstack[1]:-${funcstack[0]:-}}"
+		# Ensure standard zsh array indexing (1-based) regardless of user options
+		emulate -L zsh
+		# funcstack[1] is current function in zsh (1-indexed by default)
+		# Handle potential edge cases with fallbacks
+		printf '%s' "${funcstack[2]:-}"
+	}
+	# get function definition (zsh)
+	get_function(){
+		functions "$1" 2>/dev/null
 	}
 else
 	# bash
 	export_func(){
 		[ -n "$1" ] || return
-		eval "export -f $1" 2>/dev/null || true
+		# shellcheck disable=SC2163
+		export -f "$1" 2>/dev/null || true
 	}
 	declare_assoc(){
 		# create named associative array in bash
-		eval "declare -A $1"
+		declare -gA "$1"
 	}
 	current_funcname(){
 		# return the caller function name if available (FUNCNAME[1]), otherwise fall back to FUNCNAME[0]
@@ -59,18 +68,32 @@ else
 			echo "${FUNCNAME[0]:-}"
 		fi
 	}
+	# get function definition (bash)
+	get_function(){
+		declare -f "$1" 2>/dev/null
+	}
 fi
+
+# portable indirect variable access (works in both bash and zsh)
+getvar(){
+	eval "printf '%s' \"\${$1:-}\""
+}
 
 # validation
 call_host_valid(){
 	VAR_TO_VALIDATE="$1"
-	# retrieve the value of the named variable in a way that works in bash and zsh
-	VARVAL="$(eval "printf '%s' \"\${$VAR_TO_VALIDATE}\"")"
-	# check allowed values in a POSIX-compatible way
-	if [ "$VARVAL" != "enable" ] && [ "$VARVAL" != "disable" ]; then
-		echo "Warning: unsupported value $VARVAL for $VAR_TO_VALIDATE; disabling"
-		eval "export $VAR_TO_VALIDATE=disable"
-	fi
+	# retrieve the value of the named variable
+	VARVAL="$(getvar "$VAR_TO_VALIDATE")"
+	# check allowed values using portable case statement
+	case "$VARVAL" in
+		enable|disable)
+			# valid value, do nothing
+			;;
+		*)
+			echo "Warning: unsupported value $VARVAL for $VAR_TO_VALIDATE; disabling"
+			eval "export $VAR_TO_VALIDATE=disable"
+			;;
+	esac
 }
 export_func call_host_valid
 
@@ -108,7 +131,7 @@ add_path_unique(){
 	# args: varname value [sep]
 	varname="$1"; val="$2"; sep="${3:-:}"
 	# retrieve current value portably
-	cur="$(eval "printf '%s' \"\${${varname}:-}\"")"
+	cur="$(getvar "$varname")"
 	# if empty, set and export
 	if [ -z "$cur" ]; then
 		eval "export $varname=\"\$val\""
@@ -240,23 +263,13 @@ export_func call_host
 # from https://stackoverflow.com/questions/1203583/how-do-i-rename-a-bash-function
 copy_function() {
 	# portable retrieval of function source and re-definition under a new name
-	if is_zsh; then
-		# zsh: use `functions` to get the definition
-		if functions "$1" >/dev/null 2>&1; then
-			fnsrc="$(functions "$1" 2>/dev/null)"
-		else
-			return
-		fi
-	else
-		# bash: use declare -f
-		if declare -f "$1" >/dev/null 2>&1; then
-			fnsrc="$(declare -f "$1")"
-		else
-			return
-		fi
+	fnsrc="$(get_function "$1")"
+	if [ -z "$fnsrc" ]; then
+		return
 	fi
-	# replace the function name in the source and eval it to create new function
-	fnnew="$(printf '%s\n' "$fnsrc" | sed "s/^$1\\b/$2/")"
+	# replace only the first occurrence of the function name (at definition)
+	# Use a more portable sed pattern without \b
+	fnnew="$(printf '%s\n' "$fnsrc" | sed "1s/^$1 /$2 /; 1s/^$1()/$2()/")"
 	eval "$fnnew"
 	export_func "$2"
 }
@@ -302,16 +315,24 @@ export_func apptainer
 
 # on host: get list of condor executables
 if [ -z "$APPTAINER_CONTAINER" ]; then
+	# define command prefixes to search for
+	HOSTFN_PREFIXES="condor_ eos"
+
 	# portable command list discovery:
 	if command -v compgen >/dev/null 2>&1; then
-		export APPTAINERENV_HOSTFNS=$(compgen -c | grep -E '^condor_|^eos' | tr '\n' ' ')
+		# bash: use compgen with grep pattern built from prefixes
+		GREP_PATTERN="$(echo "$HOSTFN_PREFIXES" | sed 's/ /\\|^/g' | sed 's/^/^/')"
+		export APPTAINERENV_HOSTFNS=$(compgen -c | grep -E "$GREP_PATTERN" | tr '\n' ' ')
 	else
 		# fallback: scan PATH for matching executables (portable)
 		APPTAINERENV_HOSTFNS="$( ( IFS=:
 		for d in $PATH; do
 			[ -d "$d" ] || continue
-			for f in "$d"/condor_* "$d"/eos*; do
-				[ -x "$f" ] && basename "$f"
+			for prefix in $HOSTFN_PREFIXES; do
+				# shellcheck disable=SC2231
+				for f in "$d"/${prefix}*; do
+					[ -e "$f" ] && [ -x "$f" ] && basename "$f"
+				done
 			done
 		done ) | sort -u | tr '\n' ' ')"
 		export APPTAINERENV_HOSTFNS
