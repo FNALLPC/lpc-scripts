@@ -33,9 +33,9 @@ if is_zsh; then
 	export_func(){
 		typeset -fx "$1" 2>/dev/null || true
 	}
-	# declare an associative array (zsh) - create a named array using eval so dynamic name works
+	# declare an associative array (zsh)
 	declare_assoc(){
-		eval "typeset -A $1"
+		typeset -A "$1"
 	}
 	# get current function name in zsh (be tolerant if indices differ)
 	current_funcname(){
