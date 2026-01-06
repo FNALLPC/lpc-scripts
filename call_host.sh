@@ -8,15 +8,94 @@ if [ -f "$CALL_HOST_CONFIG" ]; then
 	source "$CALL_HOST_CONFIG"
 fi
 
+# zsh / bash compatibility helpers
+is_zsh(){
+	# detect the current shell process name (portable ps usage)
+	if command -v ps >/dev/null 2>&1; then
+		# get last path component if ps returns full path
+		p="$(ps -p $$ -o comm= 2>/dev/null | awk -F/ '{print $NF}')"
+		case "$p" in
+			zsh) return 0 ;;
+			bash) return 1 ;;
+		esac
+	fi
+
+	# fallback: check common names for $0 or $ZSH_NAME (login shells may have a leading dash)
+	case "$(basename -- "${ZSH_NAME:-$0}" 2>/dev/null)" in
+		zsh|-zsh) return 0 ;;
+	esac
+
+	return 1
+}
+
+if is_zsh; then
+	# export a function to the environment for child shells (zsh)
+	export_func(){
+		typeset -fx "$1" 2>/dev/null || true
+	}
+	# declare an associative array (zsh)
+	declare_assoc(){
+		typeset -A "$1"
+	}
+	# get current function name in zsh (be tolerant if indices differ)
+	current_funcname(){
+		# Ensure standard zsh array indexing (1-based) regardless of user options
+		emulate -L zsh
+		# funcstack[1] is current function in zsh (1-indexed by default)
+		# Handle potential edge cases with fallbacks
+		printf '%s' "${funcstack[2]:-}"
+	}
+	# get function definition (zsh)
+	get_function(){
+		functions "$1" 2>/dev/null
+	}
+else
+	# bash
+	export_func(){
+		[ -n "$1" ] || return
+		# shellcheck disable=SC2163
+		export -f "$1" 2>/dev/null || true
+	}
+	declare_assoc(){
+		# create named associative array in bash
+		declare -gA "$1"
+	}
+	current_funcname(){
+		# return the caller function name if available (FUNCNAME[1]), otherwise fall back to FUNCNAME[0]
+		if [ -n "${FUNCNAME[1]:-}" ]; then
+			echo "${FUNCNAME[1]}"
+		else
+			echo "${FUNCNAME[0]:-}"
+		fi
+	}
+	# get function definition (bash)
+	get_function(){
+		declare -f "$1" 2>/dev/null
+	}
+fi
+
+# portable indirect variable access (works in both bash and zsh)
+getvar(){
+	eval "printf '%s' \"\${$1:-}\""
+}
+
 # validation
 call_host_valid(){
 	VAR_TO_VALIDATE="$1"
-	# shellcheck disable=SC2076
-	if [[ ! " enable disable " =~ " ${!VAR_TO_VALIDATE} " ]]; then
-		echo "Warning: unsupported value ${!VAR_TO_VALIDATE} for $VAR_TO_VALIDATE; disabling"
-		eval "export $VAR_TO_VALIDATE=disable"
-	fi
+	# retrieve the value of the named variable
+	VARVAL="$(getvar "$VAR_TO_VALIDATE")"
+	# check allowed values using portable case statement
+	case "$VARVAL" in
+		enable|disable)
+			# valid value, do nothing
+			;;
+		*)
+			echo "Warning: unsupported value $VARVAL for $VAR_TO_VALIDATE; disabling"
+			eval "export $VAR_TO_VALIDATE=disable"
+			;;
+	esac
 }
+export_func call_host_valid
 
 # default values
 : ${CALL_HOST_STATUS:=enable}
@@ -46,18 +125,41 @@ if [ ! -d "$CALL_HOST_DIR" ]; then
 	echo "Warning: could not create specified dir CALL_HOST_DIR $CALL_HOST_DIR. disabling"
 	export CALL_HOST_STATUS=disable
 fi
-# ensure the pipe dir is bound
-export APPTAINER_BIND=${APPTAINER_BIND}${APPTAINER_BIND:+,}${CALL_HOST_DIR}
+
+# helper: add value to a PATH-like variable only if not already present
+add_path_unique(){
+	# args: varname value [sep]
+	varname="$1"; val="$2"; sep="${3:-:}"
+	# retrieve current value portably
+	cur="$(getvar "$varname")"
+	# if empty, set and export
+	if [ -z "$cur" ]; then
+		eval "export $varname=\"\$val\""
+		return
+	fi
+	# check for whole-element match using separators to avoid substrings
+	case "${sep}${cur}${sep}" in
+		*"${sep}${val}${sep}"*)
+			# already present
+			return
+			;;
+	esac
+	# append with separator
+	eval "export $varname=\"${cur}${sep}${val}\""
+}
+
+# ensure the pipe dir is bound (use comma separator for APPTAINER_BIND)
+add_path_unique APPTAINER_BIND "$CALL_HOST_DIR" ","
 
 # enable/disable toggles
 call_host_enable(){
 	export CALL_HOST_STATUS=enable
 }
-export -f call_host_enable
+export_func call_host_enable
 call_host_disable(){
 	export CALL_HOST_STATUS=disable
 }
-export -f call_host_disable
+export_func call_host_disable
 # single toggle for debug printouts
 call_host_debug(){
 	if [ "$CALL_HOST_DEBUG" = "enable" ]; then
@@ -66,18 +168,19 @@ call_host_debug(){
 		export CALL_HOST_DEBUG=enable
 	fi
 }
-export -f call_host_debug
+export_func call_host_debug
 # helper for debug printouts
 call_host_debug_print(){
 	if [ "$CALL_HOST_DEBUG" = "enable" ]; then
 		echo "$@"
 	fi
 }
-export -f call_host_debug_print
+export_func call_host_debug_print
 
 call_host_plugin_01(){
 	# provide htcondor-specific info in container
-	declare -A CONDOR_OS
+	# portable associative-array declaration
+	declare_assoc CONDOR_OS
 	CONDOR_OS[7]="SL7"
 	CONDOR_OS[8]="EL8"
 	CONDOR_OS[9]="EL9"
@@ -93,7 +196,7 @@ call_host_plugin_01(){
 		fi
 	fi
 }
-export -f call_host_plugin_01
+export_func call_host_plugin_01
 
 # concept based on https://stackoverflow.com/questions/32163955/how-to-run-shell-script-on-host-from-docker-container
 
@@ -113,7 +216,7 @@ listenhost(){
 		echo "$tmpexit" > "$3"
 	done
 }
-export -f listenhost
+export_func listenhost
 
 # creates randomly named pipe and prints the name
 makepipe(){
@@ -122,7 +225,7 @@ makepipe(){
 	mkfifo "$PIPETMP"
 	echo "$PIPETMP"
 }
-export -f makepipe
+export_func makepipe
 
 # to be run on host before launching each apptainer session
 startpipe(){
@@ -132,16 +235,19 @@ startpipe(){
 	# export pipes to apptainer
 	echo "export APPTAINERENV_HOSTPIPE=$HOSTPIPE; export APPTAINERENV_CONTPIPE=$CONTPIPE; export APPTAINERENV_EXITPIPE=$EXITPIPE"
 }
-export -f startpipe
+export_func startpipe
 
 # sends function to host, then listens for output, and provides exit code from function
 call_host(){
 	# disable ctrl+c to prevent "Interrupted system call"
 	trap "" SIGINT
-	if [ "${FUNCNAME[0]}" = "call_host" ]; then
+
+	# determine caller function name in a portable way
+	CURFN="$(current_funcname)"
+	if [ "$CURFN" = "call_host" ] || [ -z "$CURFN" ]; then
 		FUNCTMP=
 	else
-		FUNCTMP="${FUNCNAME[0]}"
+		FUNCTMP="$CURFN"
 	fi
 
 	# extra environment settings; set every time because commands are executed on host in subshell
@@ -152,15 +258,22 @@ call_host(){
 	cat < "$CONTPIPE"
 	return "$(cat < "$EXITPIPE")"
 }
-export -f call_host
+export_func call_host
 
 # from https://stackoverflow.com/questions/1203583/how-do-i-rename-a-bash-function
 copy_function() {
-	test -n "$(declare -f "$1")" || return
-	eval "${_/$1/$2}"
-	eval "export -f $2"
+	# portable retrieval of function source and re-definition under a new name
+	fnsrc="$(get_function "$1")"
+	if [ -z "$fnsrc" ]; then
+		return
+	fi
+	# replace only the first occurrence of the function name (at definition)
+	# Use a more portable sed pattern without \b
+	fnnew="$(printf '%s\n' "$fnsrc" | sed "1s/^$1 /$2 /; 1s/^$1()/$2()/")"
+	eval "$fnnew"
+	export_func "$2"
 }
-export -f copy_function
+export_func copy_function
 
 if [ -z "$APPTAINER_ORIG" ]; then
 	export APPTAINER_ORIG=$(which apptainer)
@@ -198,11 +311,33 @@ apptainer(){
 		)
 	fi
 }
-export -f apptainer
+export_func apptainer
 
 # on host: get list of condor executables
 if [ -z "$APPTAINER_CONTAINER" ]; then
-	export APPTAINERENV_HOSTFNS=$(compgen -c | grep '^condor_\|^eos')
+	# define command prefixes to search for
+	HOSTFN_PREFIXES="condor_ eos"
+
+	# portable command list discovery:
+	if command -v compgen >/dev/null 2>&1; then
+		# bash: use compgen with grep pattern built from prefixes
+		GREP_PATTERN="$(echo "$HOSTFN_PREFIXES" | sed 's/ /|^/g' | sed 's/^/^/')"
+		export APPTAINERENV_HOSTFNS=$(compgen -c | grep -E "$GREP_PATTERN" | tr '\n' ' ')
+	else
+		# fallback: scan PATH for matching executables (portable)
+		APPTAINERENV_HOSTFNS="$( ( IFS=:
+		for d in $PATH; do
+			[ -d "$d" ] || continue
+			for prefix in $HOSTFN_PREFIXES; do
+				# shellcheck disable=SC2231
+				for f in "$d"/${prefix}*; do
+					[ -e "$f" ] && [ -x "$f" ] && basename "$f"
+				done
+			done
+		done ) | sort -u | tr '\n' ' ')"
+		export APPTAINERENV_HOSTFNS
+	fi
+
 	if [ -n "$CALL_HOST_USERFNS" ]; then
 		export APPTAINERENV_HOSTFNS="$APPTAINERENV_HOSTFNS $CALL_HOST_USERFNS"
 	fi
