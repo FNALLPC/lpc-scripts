@@ -321,7 +321,7 @@ if [ -z "$APPTAINER_CONTAINER" ]; then
 	# portable command list discovery:
 	if command -v compgen >/dev/null 2>&1; then
 		# bash: use compgen with grep pattern built from prefixes
-		GREP_PATTERN="$(echo "$HOSTFN_PREFIXES" | sed 's/ /\\|^/g' | sed 's/^/^/')"
+		GREP_PATTERN="$(echo "$HOSTFN_PREFIXES" | sed 's/ /|^/g' | sed 's/^/^/')"
 		export APPTAINERENV_HOSTFNS=$(compgen -c | grep -E "$GREP_PATTERN" | tr '\n' ' ')
 	else
 		# fallback: scan PATH for matching executables (portable)
