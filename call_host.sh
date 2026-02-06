@@ -8,6 +8,11 @@ if [ -f "$CALL_HOST_CONFIG" ]; then
 	source "$CALL_HOST_CONFIG"
 fi
 
+# portable indirect variable access (works in both bash and zsh)
+getvar(){
+	eval "printf '%s' \"\${$1:-}\""
+}
+
 # zsh / bash compatibility helpers
 is_zsh(){
 	# detect the current shell process name (portable ps usage)
@@ -56,10 +61,12 @@ else
 		# shellcheck disable=SC2163
 		export -f "$1" 2>/dev/null || true
 	}
+	export_func getvar
 	declare_assoc(){
 		# create named associative array in bash
 		declare -gA "$1"
 	}
+    export_func declare_assoc
 	current_funcname(){
 		# return the caller function name if available (FUNCNAME[1]), otherwise fall back to FUNCNAME[0]
 		if [ -n "${FUNCNAME[1]:-}" ]; then
@@ -68,16 +75,13 @@ else
 			echo "${FUNCNAME[0]:-}"
 		fi
 	}
+    export_func current_funcname
 	# get function definition (bash)
 	get_function(){
 		declare -f "$1" 2>/dev/null
 	}
+    export_func get_function
 fi
-
-# portable indirect variable access (works in both bash and zsh)
-getvar(){
-	eval "printf '%s' \"\${$1:-}\""
-}
 
 # validation
 call_host_valid(){
