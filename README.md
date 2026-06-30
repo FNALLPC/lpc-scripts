@@ -171,14 +171,19 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     ```
 * Using the `ENV()` function in the JDL file may not function as intended, since it will be evaluated on the host node, rather than inside the container with your environment set up.
 
+### Interactive commands and signals
+
+* Commands that require tty input (such as `nano` or `emacs -nw`) now work with `call_host`, provided you are using `call_host` interactively (i.e. your terminal is a real tty). When both the input and output of `call_host` are a terminal, the host command is run under a pseudo-terminal (pty) so that full-screen and interactive programs behave normally.
+    * This requires `python3` on the host node (present on essentially all interactive nodes). If `python3` is unavailable, `script` is used as a fallback (interactive programs still work, but ctrl+C is delivered via the slower signal path described below); if neither is available, the command runs without a pty (as before).
+* Your stdin is forwarded to the host command, so piping or redirecting input works, e.g. `echo data | call_host some_command` or `call_host some_command < input.txt`.
+* Pressing ctrl+C now interrupts the running host command (and returns you to your prompt) instead of being ignored, in both interactive and non-interactive use. The container session is left intact.
+* Pressing ctrl+Z is passed through to the host command. It will not suspend the command back to your container shell, but it no longer breaks the session.
+
 ### Caveats
 
-* Commands that require tty input (such as `nano` or `emacs -nw`) will not work with `call_host`.
-* Occasionally, if a command fails (especially when calling multiple commands separated by semicolons), the pipe will break and the terminal will appear to hang. The message "Interrupted system call" may be shown.
-    It is necessary to exit and reenter the container (in order to create a new pipe) if this occurs.
-    To prevent this, chain multiple commands using logical operators (`&&` or `||`), or surround all the commands in `()` (thereby running them in a subshell).
-* Stopping a command in progress with ctrl+C is disabled (to avoid breaking the pipe as described in the previous item).
-* Suspending a command with ctrl+Z is not supported and may break the session.
+* The "Interrupted system call" hang that could previously occur when a command failed (especially with multiple commands separated by semicolons) has been fixed; such command sequences are now handled normally. As good practice you may still prefer to chain commands with `&&`/`||` or wrap them in `()`.
+* The improved tty handling applies when `call_host` is used interactively. In a non-interactive context (e.g. output piped to another command, or inside a script), the host command is run without a pty, and ctrl+C is forwarded as a signal rather than through the terminal.
+* These features rely on the `apptainer` function provided by this script being in effect on the host (see Usage above). As before, when using a wrapper such as `cmssw-el7`, this requires a `bash` login shell so the function is exported to the wrapper.
 
 ## `bind_condor.sh`
 
