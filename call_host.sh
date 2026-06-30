@@ -243,6 +243,14 @@ export_func startpipe
 
 # sends function to host, then listens for output, and provides exit code from function
 call_host(){
+	if [ "$CALL_HOST_STATUS" != "enable" ]; then
+		echo "call_host is disabled"
+		return 1
+	elif [ -z "$HOSTPIPE" ] || [ -z "$CONTPIPE" ] || [ -z "$EXITPIPE" ]; then
+		echo "call_host pipes are missing"
+		return 1
+	fi
+
 	# disable ctrl+c to prevent "Interrupted system call"
 	trap "" SIGINT
 
