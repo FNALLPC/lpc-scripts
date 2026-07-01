@@ -280,11 +280,11 @@ fi
 # python launcher (resets the handlers, then exec's, so no python stays resident).
 # CALL_HOST_SIGDFL_MODE selects which mechanism run_on_host uses.
 if env --default-signal=INT,QUIT true >/dev/null 2>&1; then
-	CALL_HOST_SIGDFL_MODE=env
+	CALL_HOST_SIGDFL_MODE="env"
 elif command -v python3 >/dev/null 2>&1; then
-	CALL_HOST_SIGDFL_MODE=python
+	CALL_HOST_SIGDFL_MODE="python"
 else
-	CALL_HOST_SIGDFL_MODE=none
+	CALL_HOST_SIGDFL_MODE="none"
 fi
 # kept free of newlines so it can be passed as a single argument
 CALL_HOST_SIGDFL_PY='import os,sys,signal; signal.signal(signal.SIGINT,signal.SIG_DFL); signal.signal(signal.SIGQUIT,signal.SIG_DFL); os.execvp(sys.argv[1],sys.argv[1:])'
