@@ -12,7 +12,7 @@ Table of Contents
    * [Details](#details)
    * [Options](#options)
    * [HTCondor jobs](#htcondor-jobs)
-   * [Caveats](#caveats)
+   * [Interactive commands and signals](#interactive-commands-and-signals)
 * [bind_condor.sh](#bind_condorsh)
    * [Usage](#usage-1)
    * [Setting up bindings](#setting-up-bindings)
@@ -178,12 +178,6 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
 * Your stdin is forwarded to the host command, so piping or redirecting input works, e.g. `echo data | call_host some_command` or `call_host some_command < input.txt`.
 * Pressing ctrl+C now interrupts the running host command (and returns you to your prompt) instead of being ignored, in both interactive and non-interactive use. The container session is left intact.
 * Pressing ctrl+Z is passed through to the host command. It will not suspend the command back to your container shell, but it no longer breaks the session.
-
-### Caveats
-
-* The "Interrupted system call" hang that could previously occur when a command failed (especially with multiple commands separated by semicolons) has been fixed; such command sequences are now handled normally. As good practice you may still prefer to chain commands with `&&`/`||` or wrap them in `()`.
-* The improved tty handling applies when `call_host` is used interactively. In a non-interactive context (e.g. output piped to another command, or inside a script), the host command is run without a pty, and ctrl+C is forwarded as a signal rather than through the terminal.
-* These features rely on the `apptainer` function provided by this script being in effect on the host (see Usage above). As before, when using a wrapper such as `cmssw-el7`, this requires a `bash` login shell so the function is exported to the wrapper.
 
 ## `bind_condor.sh`
 
