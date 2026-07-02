@@ -177,7 +177,7 @@ or placed in a file `~/.callhostrc` (automatically detected and sourced by `call
     * This requires `python3` on the host node (present on essentially all interactive nodes). If `python3` is unavailable, `script` is used as a fallback (interactive programs still work, but ctrl+C is delivered via the slower signal path described below); if neither is available, the command runs without a pty (as before).
 * Your stdin is forwarded to the host command, so piping or redirecting input works, e.g. `echo data | call_host some_command` or `call_host some_command < input.txt`.
 * Pressing ctrl+C now interrupts the running host command (and returns you to your prompt) instead of being ignored, in both interactive and non-interactive use. The container session is left intact.
-* Pressing ctrl+Z is passed through to the host command. It will not suspend the command back to your container shell, but it no longer breaks the session.
+* Pressing ctrl+Z does not suspend the host command (job-control suspension cannot be supported across the container boundary), but it no longer breaks the session or leaves a stray process on the host: the keystroke is simply ignored and the command keeps running. Use ctrl+C if you want to stop it.
 
 ## `bind_condor.sh`
 
