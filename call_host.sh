@@ -231,6 +231,16 @@ try:
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 except Exception:
     pass
+# Disable the pty's suspend character (ctrl+z). We cannot honour job-control
+# suspension here -- there is no interactive shell on this side to background the
+# job to -- and a stopped host command would hang this bridge and be orphaned when
+# the container exits. Disabling VSUSP makes ctrl+z a harmless passthrough byte.
+try:
+    attr = termios.tcgetattr(fd)
+    attr[6][termios.VSUSP] = b'\x00'
+    termios.tcsetattr(fd, termios.TCSANOW, attr)
+except Exception:
+    pass
 fds = [fd, 0]
 while True:
     try:
@@ -323,6 +333,13 @@ run_on_host(){
 		esac
 	fi
 	child=$!
+	# The command runs in its own session/process group (setsid above), which is
+	# necessary for targeted signal delivery but means it is NOT in the listener's
+	# process group -- so the container-exit cleanup (which kills the listener's
+	# group) would not reach a command that is still running (e.g. the user exits
+	# the container mid-command). Guard against that: if this runner is terminated
+	# (it IS in the listener's group), kill the command's whole process group first.
+	trap 'kill -TERM -- -"$child" 2>/dev/null; kill -KILL -- -"$child" 2>/dev/null; exit 143' TERM HUP
 	# forward signals received on the signal pipe to the command's process group.
 	# This is how a ctrl+c from a non-tty container session interrupts the host
 	# command. The loop exits once the command is gone.
@@ -335,6 +352,7 @@ run_on_host(){
 	) &
 	sigfwd=$!
 	wait "$child"; rc=$?
+	trap - TERM HUP
 	# tear down the signal forwarder (and unblock its read on the pipe)
 	kill "$sigfwd" 2>/dev/null
 	echo "" > "$sp" 2>/dev/null &
@@ -561,12 +579,17 @@ apptainer(){
 		# i.e. don't create more pipes/listeners for nested containers
 		if [ -z "$APPTAINER_CONTAINER" ]; then
 			eval "$(startpipe)"
-			# Detach the listener (and its whole subtree) from this shell's stdio:
-			# it communicates only through the explicit pipes, so it must never hold
-			# the user's terminal/stdout open. Otherwise background helpers spawned by
-			# the listener could keep a pipeline (e.g. "... | tail") from ever seeing
-			# EOF after the container exits.
-			listenhost "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE" "$APPTAINERENV_INPIPE" "$APPTAINERENV_SIGPIPE" </dev/null >/dev/null 2>&1 &
+			# Start the listener in its own new session/process group (setsid) and
+			# detached from this shell's stdio. Two reasons:
+			#  1. The listener communicates only through the explicit pipes, so it must
+			#     never hold the user's terminal/stdout open (otherwise a pipeline like
+			#     "... | tail" would never see EOF after the container exits).
+			#  2. Its own process group lets us signal the whole subtree at cleanup.
+			#     The listener reads each request with "$(cat "$hp")", which forks a
+			#     subshell that forks cat; killing only the listener (or its direct
+			#     children) would leave that cat grandchild blocked on the fifo and
+			#     reparented to init. Killing the process group reaps all of them.
+			setsid bash -c 'listenhost "$@"' _ "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE" "$APPTAINERENV_INPIPE" "$APPTAINERENV_SIGPIPE" </dev/null >/dev/null 2>&1 &
 			LISTENER=$!
 		fi
 		# actually run apptainer
@@ -574,10 +597,14 @@ apptainer(){
 		# avoid dangling cat process after exiting container
 		# (again, only on host)
 		if [ -z "$APPTAINER_CONTAINER" ]; then
-			# tear down the listener and any descendants (signal forwarders, detached
-			# command runners) so nothing is left holding the pipes open
-			pkill -P "$LISTENER" 2>/dev/null
-			kill "$LISTENER" 2>/dev/null
+			# Tear down the listener and every descendant (the blocked "cat" reader,
+			# signal forwarders, detached command runners) by signalling its whole
+			# process group. setsid above made LISTENER the group leader, so its pgid
+			# equals its pid, and a negative pid signals the entire group. This is
+			# both necessary (the "cat" reader is a grandchild that a plain kill would
+			# orphan) and sufficient, so we deliberately avoid pkill -P / kill on the
+			# bare pid, which could hit an unrelated process if the pid were reused.
+			kill -- -"$LISTENER" 2>/dev/null
 			rm -f "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE" "$APPTAINERENV_INPIPE" "$APPTAINERENV_SIGPIPE"
 		fi
 		)
