@@ -424,6 +424,14 @@ startpipe(){
 }
 export_func startpipe
 
+make_listener_script(){
+	get_function call_host_debug_print
+	get_function run_on_host
+	get_function listenhost
+	printf '\nlistenhost "$@"\n'
+}
+export_func make_listener_script
+
 # sends function to host, then listens for output, and provides exit code from function
 call_host(){
 	if [ "$CALL_HOST_STATUS" != "enable" ]; then
@@ -589,7 +597,8 @@ apptainer(){
 			#     subshell that forks cat; killing only the listener (or its direct
 			#     children) would leave that cat grandchild blocked on the fifo and
 			#     reparented to init. Killing the process group reaps all of them.
-			setsid bash -c 'listenhost "$@"' _ "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE" "$APPTAINERENV_INPIPE" "$APPTAINERENV_SIGPIPE" </dev/null >/dev/null 2>&1 &
+			CALL_HOST_LISTENER_SCRIPT="$(make_listener_script)"
+			setsid bash -c "$CALL_HOST_LISTENER_SCRIPT" _ "$APPTAINERENV_HOSTPIPE" "$APPTAINERENV_CONTPIPE" "$APPTAINERENV_EXITPIPE" "$APPTAINERENV_INPIPE" "$APPTAINERENV_SIGPIPE" </dev/null >/dev/null 2>&1 &
 			LISTENER=$!
 		fi
 		# actually run apptainer
